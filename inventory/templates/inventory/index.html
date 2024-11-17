@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+
+{% block body %}
+
+{% if messages %}
+<div class="alert alert-success">
+    {% for message in messages %}
+        {{ message }}
+    {% endfor %}
+</div>
+{% endif %}
+
+<h3 class="m-4">Inventory</h3>
+
+<div class="row">
+    <div class="col-12">
+        {% if inventories %}
+        <div class="card bg-light ms-4 me-4 mb-4">
+            <div class="card-header"></div>
+            <div class="card-body">
+                <p class="card-text">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                            <tr>
+                                <th scope="col">Product Code</th>
+                                <th scope="col">Product Name</th>
+                                <th scope="col">Description</th>
+                                <th scope="col">Price</th>
+                                <th scope="col">Purchase Price</th>  <!-- Added Purchase Price -->
+                                <th scope="col">Stock</th>
+                                <th scope="col">Unit</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                                {% for inventory in inventories %}
+                                    <tr>
+                                        <td>{{ inventory.product.product_code }}</td>
+                                        <td>{{ inventory.product.product_name }}</td>
+                                        <td>{{ inventory.product.product_descript }}</td>
+                                        <td>{{ inventory.product.product_price }}</td>
+                                        <td>{{ inventory.product.purchase_price }}</td>  <!-- Display Purchase Price -->
+                                        <td>{{ inventory.inventory_stock }}</td>
+                                        <td>{{ inventory.product.product_unit }}</td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </p>
+            </div>
+        </div>
+
+        {% else %}
+            <h5 class="alert alert-primary ms-4 me-4"> No Inventory Records </h5>
+        {% endif %}
+    </div>
+</div> 
+
+{% endblock %}

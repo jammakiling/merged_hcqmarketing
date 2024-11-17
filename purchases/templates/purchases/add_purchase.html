@@ -1,0 +1,201 @@
+{% extends "base.html" %}
+
+{% block body %}
+<h3 class="m-4">New Purchase</h3>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card bg-light ms-4 me-4 mb-4">
+            <div class="card-header">
+                <h5 class="card-title">Purchase Details</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    {% csrf_token %}
+
+                    <!-- Display form errors if any -->
+                    {% if purchase_form.errors %}
+                        <ul style="color: red;">
+                            {% for field, errors in purchase_form.errors.items %}
+                                <li><strong>{{ field }}:</strong>
+                                    {% for error in errors %}
+                                        <p>{{ error }}</p>
+                                    {% endfor %}
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    {% endif %}
+
+                    <!-- Supplier Dropdown -->
+                    <div class="mb-3">
+                        <label for="id_supplier" class="form-label">Supplier</label>
+                        <select name="supplier" id="id_supplier" class="form-select" required>
+                            <option value="" selected disabled>Select Supplier</option>
+                            {% for supplier in suppliers %}
+                                <option value="{{ supplier.id }}">
+                                    {{ supplier.supplier_hardware }} ({{ supplier.first_name }} {{ supplier.last_name }})
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Date Input -->
+                    <div class="mb-3">
+                        <label for="id_date" class="form-label">Date</label>
+                        <input type="datetime-local" name="date" id="id_date" class="form-control" required>
+                    </div>
+
+                    <!-- Status Dropdown (new field) -->
+                    <div class="mb-3">
+                        <label for="id_status" class="form-label">Status</label>
+                        <select name="status" id="id_status" class="form-select">
+                            <option value="Pending" selected>Pending</option>
+                            <option value="Partially Delivered">Partially Delivered</option>
+                            <option value="Delivered">Delivered</option>
+                            <option value="Cancelled">Cancelled</option>
+                        </select>
+                    </div>
+
+                    <!-- Purchase Items Container -->
+                    <div id="purchase-items" class="mb-3">
+                        <h5 class="card-title">Products</h5>
+
+                        <!-- Hidden Input for Django Formset Management -->
+                        <input type="hidden" name="form-TOTAL_FORMS" id="id_form-TOTAL_FORMS" value="1">
+                        <input type="hidden" name="form-INITIAL_FORMS" value="0">
+                        <input type="hidden" name="form-MIN_NUM_FORMS" value="0">
+                        <input type="hidden" name="form-MAX_NUM_FORMS" value="1000">
+
+                        <div class="purchase-item mb-3" id="item-0">
+                            <div class="row">
+                                <!-- Inventory Item Dropdown -->
+                                <div class="col-md-4">
+                                    <label for="id_form-0-inventory" class="form-label">Product</label>
+                                    <select name="form-0-inventory" id="id_form-0-inventory" class="form-select" required>
+                                        <option value="" selected disabled>Select Product</option>
+                                        {% for inventory in inventories %}
+                                            <option value="{{ inventory.id }}" data-price="{{ inventory.product.purchase_price }}">
+                                                {{ inventory.product.product_name }} ({{ inventory.product.product_code }})
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+
+                                <!-- Quantity Input -->
+                                <div class="col-md-4">
+                                    <label for="id_form-0-quantity" class="form-label">Quantity</label>
+                                    <input type="number" name="form-0-quantity" id="id_form-0-quantity" class="form-control" required>
+                                </div>
+
+                                <!-- Price Input (Auto-filled with purchase price from product) -->
+                                <div class="col-md-4">
+                                    <label for="id_form-0-price" class="form-label">Price</label>
+                                    <input type="number" name="form-0-price" id="id_form-0-price" class="form-control" readonly>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Add More Products Button -->
+                    <button type="button" id="add-more" class="btn btn-primary mb-3">Add More Products</button>
+
+                    <!-- Total Price Calculation -->
+                    <div class="mb-3">
+                        <label for="id_total_price" class="form-label">Total Price</label>
+                        <input type="number" id="id_total_price" class="form-control" readonly>
+                    </div>
+
+                    <!-- Submit Button -->
+                    <div class="mb-3 text-center">
+                        <button type="submit" class="btn btn-success">Save Purchase</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Function to update the total price
+function updateTotalPrice() {
+    var total = 0;
+    var items = document.querySelectorAll('.purchase-item');
+    
+    items.forEach(function(item, index) {
+        var quantity = document.getElementById(`id_form-${index}-quantity`).value;
+        var price = document.getElementById(`id_form-${index}-price`).value;
+        
+        if (quantity && price) {
+            total += (quantity * price);
+        }
+    });
+
+    document.getElementById('id_total_price').value = total;
+}
+
+// Event listener for inventory selection to update price
+document.querySelectorAll('[id^="id_form-"][id$="-inventory"]').forEach(function(select) {
+    select.addEventListener('change', function() {
+        var price = this.options[this.selectedIndex].getAttribute('data-price');
+        var itemIndex = this.id.match(/\d+/)[0];
+        document.getElementById(`id_form-${itemIndex}-price`).value = price;
+        
+        updateTotalPrice();
+    });
+});
+
+// Event listener for quantity input to update the total price
+document.querySelectorAll('[id^="id_form-"][id$="-quantity"]').forEach(function(input) {
+    input.addEventListener('input', function() {
+        updateTotalPrice();
+    });
+});
+
+// Add new product row
+document.getElementById("add-more").addEventListener("click", function() {
+    var itemCount = document.querySelectorAll('.purchase-item').length;
+    var newItem = document.createElement("div");
+    newItem.classList.add("purchase-item", "mb-3");
+    newItem.id = `item-${itemCount}`;
+    newItem.innerHTML = `
+        <div class="row">
+            <div class="col-md-4">
+                <label for="id_form-${itemCount}-inventory" class="form-label">Product</label>
+                <select name="form-${itemCount}-inventory" id="id_form-${itemCount}-inventory" class="form-select" required>
+                    <option value="" selected disabled>Select Product</option>
+                    {% for inventory in inventories %}
+                        <option value="{{ inventory.id }}" data-price="{{ inventory.product.purchase_price }}">
+                            {{ inventory.product.product_name }} ({{ inventory.product.product_code }})
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label for="id_form-${itemCount}-quantity" class="form-label">Quantity</label>
+                <input type="number" name="form-${itemCount}-quantity" id="id_form-${itemCount}-quantity" class="form-control" required>
+            </div>
+            <div class="col-md-4">
+                <label for="id_form-${itemCount}-price" class="form-label">Price</label>
+                <input type="number" name="form-${itemCount}-price" id="id_form-${itemCount}-price" class="form-control" readonly>
+            </div>
+        </div>
+    `;
+    document.getElementById('purchase-items').appendChild(newItem);
+    document.getElementById('id_form-TOTAL_FORMS').value = itemCount + 1;
+
+    // Add event listeners to the new inputs
+    newItem.querySelector(`[id^="id_form-${itemCount}-inventory"]`).addEventListener('change', function() {
+        var price = this.options[this.selectedIndex].getAttribute('data-price');
+        document.getElementById(`id_form-${itemCount}-price`).value = price;
+        updateTotalPrice();
+    });
+    newItem.querySelector(`[id^="id_form-${itemCount}-quantity"]`).addEventListener('input', function() {
+        updateTotalPrice();
+    });
+});
+
+// Initialize total price calculation when the page loads
+updateTotalPrice();
+</script>
+
+{% endblock %}

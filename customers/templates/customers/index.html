@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+
+{% block body %}
+
+{% if messages %}
+<div class="alert alert-success">
+    {% for message in messages %}
+        {{ message }}
+    {% endfor %}
+</div>
+{% endif %}
+
+<h3 class = "m-4">Customers</h3>
+<div class = "row">
+    <div class = "col-12">
+        {% if customers %}
+        <div class="card bg-light ms-4 me-4 mb-4">
+            <div class="card-header"></div>
+            <div class="card-body">
+                <p class="card-text">
+                    <div class ="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                            <tr>
+                                <th scope="col">ID</th>
+                                <th scope="col">First Name</th>
+                                <th scope="col">Last Name</th>
+                                <th scope="col">Supplier Hardware</th>
+                                <th scope="col">Email</th>
+                                <th scope="col">Address</th>
+                                <th scope="col">Contact</th>
+                                <th scope="col">Date Started</th>
+                                <th scope="col">Start By</th>
+                                <th scope="col">Date Edited</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                                {% for customer in customers %}
+                                    <tr>
+                                        <td>{{ customer.id}}</td>
+                                        <td>{{ customer.first_name}}</td>
+                                        <td>{{ customer.last_name}}</td>
+                                        <td>{{ customer.customer_hardware}}</td>
+                                        <td>{{ customer.email}}</td>
+                                        <td>{{ customer.address}}</td>
+                                        <td>{{ customer.contact_num}}</td>
+                                        <td>{{ customer.dateStart}}</td>
+                                        <td>{{ customer.startBy}}</td>
+                                        <td>{{ customer.dateEdit}}</td>
+                                        <td> 
+                                            <form action="{% url 'customer_edit' customer.id %}" method="post" style="display:inline;"> 
+                                                {% csrf_token %}
+                                                <button type="submit" class="btn btn-danger btn-sm">Edit</button>
+                                            </form>
+                                            
+                                        </td>
+                                        <td>
+                                                
+                                            <form action="{% url 'delete_customer' customer.id %}" method="post" style="display:inline;">
+                                                {% csrf_token %}
+                                                <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                                            </form>
+
+                                        </td>
+
+                                    
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </p>
+            </div>
+        </div>
+
+        {% else %}
+            <h5 class = "alert alert-primary ms-4 me-4"> No Customer Records </h5>
+        {% endif %}
+    </div>
+</div> 
+</div>
+
+
+
+{% endblock %}

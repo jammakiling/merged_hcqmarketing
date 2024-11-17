@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block body %}
+<h3 class="m-4">Add New Purchase</h3>
+<div class="container">
+    {% if success %}
+        <div class="alert alert-success">
+            Purchase added successfully!
+        </div>
+    {% endif %}
+    
+    <!-- Display form errors if any -->
+    {% if form.errors %}
+        <div class="alert alert-danger">
+            <ul>
+                {% for field in form %}
+                    {% for error in field.errors %}
+                        <li>{{ error }}</li>
+                    {% endfor %}
+                {% endfor %}
+            </ul>
+        </div>
+    {% endif %}
+    
+    <form method="POST">
+        {% csrf_token %}
+        {{ form.as_p }}  <!-- Render the form fields as paragraphs -->
+        <button type="submit" class="btn btn-primary">Save</button>
+    </form>
+</div>
+{% endblock %}
