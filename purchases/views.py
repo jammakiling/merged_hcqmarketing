@@ -91,6 +91,13 @@ def change_purchase_status(request, id):
     return redirect('purchases:purchase_index')
 
 
+def purchase_detail(request, id):
+    # Fetch the purchase object by its ID
+    purchase = get_object_or_404(Purchase, id=id)
+
+    # Pass the purchase object to the template
+    return render(request, 'purchases/purchase_detail.html', {'purchase': purchase})
+
 
 
 

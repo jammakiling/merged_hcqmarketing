@@ -28,7 +28,7 @@
                             <tbody>
                                 {% for purchase in purchases %}
                                 <tr>
-                                    <td>{{ purchase.purchase_code }}</td>
+                                    <td><a href="{% url 'purchases:purchase_detail' purchase.id %}">{{ purchase.purchase_code }}</a></td>
                                     <td>{{ purchase.supplier.supplier_hardware }}</td>
                                     <td>{{ purchase.date|date:"Y-m-d H:i" }}</td>
                                     <td>{{ purchase.product_count }}</td>

@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+
+{% block body %}
+<h3 class="m-4">Purchase Details</h3>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card bg-light ms-4 me-4 mb-4">
+            <div class="card-header">
+                <h5 class="card-title">Details for Purchase: {{ purchase.purchase_code }}</h5>
+            </div>
+            <div class="card-body">
+                <p><strong>Supplier:</strong> {{ purchase.supplier.supplier_hardware }}</p>
+                <p><strong>Date:</strong> {{ purchase.date|date:"Y-m-d H:i" }}</p>
+                <p><strong>Total Cost:</strong> {{ purchase.total_cost }}</p>
+                <p><strong>Status:</strong> {{ purchase.status }}</p>
+
+                <h5>Purchase Items</h5>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Product</th>
+                            <th scope="col">Quantity</th>
+                            <th scope="col">Delivered Quantity</th>
+                            <th scope="col">Price</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in purchase.items.all %}
+                        <tr>
+                            <td>{{ item.inventory.product.product_name }}</td>
+                            <td>{{ item.quantity }}</td>
+                            <td>{{ item.delivered_quantity }}</td>
+                            <td>{{ item.price }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+
+                <!-- Button to trigger modal for editing status -->
+                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#editStatusModal">
+                    Edit Status
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal for editing purchase status -->
+<div class="modal fade" id="editStatusModal" tabindex="-1" aria-labelledby="editStatusModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editStatusModalLabel">Edit Status for {{ purchase.purchase_code }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Form to update status -->
+                <form method="POST" action="{% url 'purchases:change_purchase_status' purchase.id %}">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="status" class="form-label">Select New Status</label>
+                        <select name="status" id="status" class="form-select">
+                            <option value="Pending" {% if purchase.status == "Pending" %}selected{% endif %}>Pending</option>
+                            <option value="Partially Delivered" {% if purchase.status == "Partially Delivered" %}selected{% endif %}>Partially Delivered</option>
+                            <option value="Delivered" {% if purchase.status == "Delivered" %}selected{% endif %}>Delivered</option>
+                            <option value="Cancelled" {% if purchase.status == "Cancelled" %}selected{% endif %}>Cancelled</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-success">Update Status</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
