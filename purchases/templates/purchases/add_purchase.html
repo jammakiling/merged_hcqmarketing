@@ -88,9 +88,14 @@
                                 </div>
 
                                 <!-- Price Input (Auto-filled with purchase price from product) -->
-                                <div class="col-md-4">
+                                <div class="col-md-3">
                                     <label for="id_form-0-price" class="form-label">Price</label>
                                     <input type="number" name="form-0-price" id="id_form-0-price" class="form-control" readonly>
+                                </div>
+
+                                <!-- Delete Button -->
+                                <div class="col-md-1 d-flex align-items-end">
+                                    <button type="button" class="btn btn-danger btn-sm delete-row">X</button>
                                 </div>
                             </div>
                         </div>
@@ -118,43 +123,48 @@
 <script>
 // Function to update the total price
 function updateTotalPrice() {
-    var total = 0;
-    var items = document.querySelectorAll('.purchase-item');
-    
-    items.forEach(function(item, index) {
-        var quantity = document.getElementById(`id_form-${index}-quantity`).value;
-        var price = document.getElementById(`id_form-${index}-price`).value;
-        
+    let total = 0;
+    document.querySelectorAll('.purchase-item').forEach((item, index) => {
+        const quantity = document.getElementById(`id_form-${index}-quantity`).value;
+        const price = document.getElementById(`id_form-${index}-price`).value;
         if (quantity && price) {
             total += (quantity * price);
         }
     });
-
     document.getElementById('id_total_price').value = total;
 }
 
 // Event listener for inventory selection to update price
-document.querySelectorAll('[id^="id_form-"][id$="-inventory"]').forEach(function(select) {
-    select.addEventListener('change', function() {
-        var price = this.options[this.selectedIndex].getAttribute('data-price');
-        var itemIndex = this.id.match(/\d+/)[0];
+document.addEventListener('change', function(event) {
+    if (event.target.matches('[id^="id_form-"][id$="-inventory"]')) {
+        const itemIndex = event.target.id.match(/\d+/)[0];
+        const price = event.target.options[event.target.selectedIndex].getAttribute('data-price');
         document.getElementById(`id_form-${itemIndex}-price`).value = price;
-        
         updateTotalPrice();
-    });
+    }
 });
 
 // Event listener for quantity input to update the total price
-document.querySelectorAll('[id^="id_form-"][id$="-quantity"]').forEach(function(input) {
-    input.addEventListener('input', function() {
+document.addEventListener('input', function(event) {
+    if (event.target.matches('[id^="id_form-"][id$="-quantity"]')) {
         updateTotalPrice();
-    });
+    }
+});
+
+// Function to remove a row
+document.addEventListener('click', function(event) {
+    if (event.target.classList.contains('delete-row')) {
+        const row = event.target.closest('.purchase-item');
+        row.remove();
+        updateFormIndices();
+        updateTotalPrice();
+    }
 });
 
 // Add new product row
 document.getElementById("add-more").addEventListener("click", function() {
-    var itemCount = document.querySelectorAll('.purchase-item').length;
-    var newItem = document.createElement("div");
+    const itemCount = document.querySelectorAll('.purchase-item').length;
+    const newItem = document.createElement("div");
     newItem.classList.add("purchase-item", "mb-3");
     newItem.id = `item-${itemCount}`;
     newItem.innerHTML = `
@@ -174,28 +184,32 @@ document.getElementById("add-more").addEventListener("click", function() {
                 <label for="id_form-${itemCount}-quantity" class="form-label">Quantity</label>
                 <input type="number" name="form-${itemCount}-quantity" id="id_form-${itemCount}-quantity" class="form-control" required>
             </div>
-            <div class="col-md-4">
+            <div class="col-md-3">
                 <label for="id_form-${itemCount}-price" class="form-label">Price</label>
                 <input type="number" name="form-${itemCount}-price" id="id_form-${itemCount}-price" class="form-control" readonly>
+            </div>
+            <div class="col-md-1 d-flex align-items-end">
+                <button type="button" class="btn btn-danger btn-sm delete-row">X</button>
             </div>
         </div>
     `;
     document.getElementById('purchase-items').appendChild(newItem);
     document.getElementById('id_form-TOTAL_FORMS').value = itemCount + 1;
-
-    // Add event listeners to the new inputs
-    newItem.querySelector(`[id^="id_form-${itemCount}-inventory"]`).addEventListener('change', function() {
-        var price = this.options[this.selectedIndex].getAttribute('data-price');
-        document.getElementById(`id_form-${itemCount}-price`).value = price;
-        updateTotalPrice();
-    });
-    newItem.querySelector(`[id^="id_form-${itemCount}-quantity"]`).addEventListener('input', function() {
-        updateTotalPrice();
-    });
 });
+
+// Function to update form indices
+function updateFormIndices() {
+    document.querySelectorAll('.purchase-item').forEach((item, index) => {
+        item.id = `item-${index}`;
+        item.querySelectorAll('select, input').forEach(input => {
+            input.name = input.name.replace(/form-\d+-/, `form-${index}-`);
+            input.id = input.id.replace(/form-\d+-/, `form-${index}-`);
+        });
+    });
+    document.getElementById('id_form-TOTAL_FORMS').value = document.querySelectorAll('.purchase-item').length;
+}
 
 // Initialize total price calculation when the page loads
 updateTotalPrice();
 </script>
-
 {% endblock %}
