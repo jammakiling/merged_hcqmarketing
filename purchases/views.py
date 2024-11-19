@@ -26,12 +26,14 @@ def add_purchase(request):
                     purchase.save()
 
                     total_cost = 0
+                    purchase_items = []  # Store items to update inventory later if needed
                     for form in formset:
                         purchase_item = form.save(commit=False)
                         purchase_item.purchase = purchase
                         if not purchase_item.price:
                             purchase_item.price = purchase_item.inventory.product.purchase_price
                         purchase_item.save()
+                        purchase_items.append(purchase_item)  # Save for later use
                         total_cost += purchase_item.quantity * purchase_item.price
 
                     purchase.total_cost = total_cost
@@ -39,7 +41,8 @@ def add_purchase(request):
 
                     # Update inventory if status is 'Delivered'
                     if purchase.status == 'Delivered':
-                        update_inventory(purchase)
+                        for item in purchase_items:  # Iterate through the saved purchase items
+                            update_inventory(item)
 
                 return redirect('purchases:purchase_index')
 
@@ -61,6 +64,7 @@ def add_purchase(request):
         'suppliers': suppliers,
         'inventories': inventories,
     })
+
 
 def update_inventory(purchase_item):
     # Access the related inventory through the purchase_item's inventory
