@@ -1,15 +1,27 @@
 from django.contrib import messages
+from django.db import transaction, IntegrityError
+from django.db.models import Count
+from django.shortcuts import render, redirect, get_object_or_404
 from datetime import datetime
 from .models import Purchase, PurchaseItem
 from .forms import PurchaseForm, PurchaseItemFormSet
 from suppliers.models import Supplier
 from inventory.models import Inventory
-from django.db.models import Count
-from django.shortcuts import render, redirect
-from django.db import transaction
-from django.db import IntegrityError
-from django.shortcuts import render, get_object_or_404, redirect
-from .models import Purchase
+
+
+def update_inventory_for_item(item, added_quantity, reverse=False):
+    """Adjust the inventory stock based on the delivered quantity.
+       If reverse=True, we subtract the delivered quantity, otherwise add it."""
+    inventory = item.inventory
+    if reverse:
+        # Reverse the delivery by subtracting the delivered quantity from the stock
+        inventory.inventory_stock -= item.delivered_quantity
+    else:
+        # Add the added quantity to inventory
+        inventory.inventory_stock += added_quantity
+    inventory.save()
+
+
 def add_purchase(request):
     if request.method == "POST":
         purchase_form = PurchaseForm(request.POST)
@@ -26,23 +38,22 @@ def add_purchase(request):
                     purchase.save()
 
                     total_cost = 0
-                    purchase_items = []  # Store items to update inventory later if needed
+                    purchase_items = []
                     for form in formset:
                         purchase_item = form.save(commit=False)
                         purchase_item.purchase = purchase
                         if not purchase_item.price:
                             purchase_item.price = purchase_item.inventory.product.purchase_price
                         purchase_item.save()
-                        purchase_items.append(purchase_item)  # Save for later use
+                        purchase_items.append(purchase_item)
                         total_cost += purchase_item.quantity * purchase_item.price
 
                     purchase.total_cost = total_cost
                     purchase.save()
 
-                    # Update inventory if status is 'Delivered'
                     if purchase.status == 'Delivered':
-                        for item in purchase_items:  # Iterate through the saved purchase items
-                            update_inventory(item)
+                        for item in purchase_items:
+                            update_inventory_for_item(item, item.quantity)
 
                 return redirect('purchases:purchase_index')
 
@@ -66,45 +77,81 @@ def add_purchase(request):
     })
 
 
-def update_inventory(purchase_item):
-    # Access the related inventory through the purchase_item's inventory
-    inventory = purchase_item.inventory  # Get the inventory linked to the purchase item
-    inventory.inventory_stock += purchase_item.quantity  # Increase inventory stock based on the quantity received
-    inventory.save()  # Save the updated inventory
-
-
 def change_purchase_status(request, id):
     if request.method == 'POST':
         purchase = get_object_or_404(Purchase, id=id)
         new_status = request.POST.get('status')
 
-        # Change status
-        purchase.status = new_status
-        purchase.save()
+        try:
+            with transaction.atomic():
+                if new_status == 'Pending':
+                    # Reset delivered quantities and subtract from inventory
+                    for item in purchase.items.all():
+                        if item.delivered_quantity > 0:
+                            update_inventory_for_item(item, -item.delivered_quantity, reverse=True)
+                            item.delivered_quantity = 0
+                            item.save()
+                    purchase.status = 'Pending'
 
-        # Update inventory if necessary (if status is 'Delivered')
-        if new_status == 'Delivered':
-            # Iterating over all purchase items related to this purchase
-            for purchase_item in purchase.items.all():  # 'items' is the related_name from PurchaseItem
-                inventory = purchase_item.inventory  # Access the inventory linked to the purchase item
-                print(f"Product: {inventory.product.product_name}, Quantity: {purchase_item.quantity}")
-                update_inventory(purchase_item)  # Pass the purchase_item to update inventory
+                elif new_status == 'Partially Delivered':
+                    for item in purchase.items.all():
+                        delivered_key = f"delivered_quantity_{item.id}"
+                        try:
+                            newly_delivered_quantity = int(request.POST.get(delivered_key, 0))
+                        except ValueError:
+                            messages.error(request, f"Invalid input for {item.inventory.product.product_name}.")
+                            continue
 
-        return redirect('purchases:purchase_index')  # Redirect back to the index page
+                        remaining_quantity = item.quantity - item.delivered_quantity
+
+                        if newly_delivered_quantity > remaining_quantity:
+                            messages.error(
+                                request,
+                                f"Cannot deliver more than the remaining quantity for {item.inventory.product.product_name}. "
+                                f"Ordered: {item.quantity}, Already Delivered: {item.delivered_quantity}, Remaining: {remaining_quantity}."
+                            )
+                            continue
+                        elif newly_delivered_quantity < 0:
+                            messages.error(
+                                request,
+                                f"Invalid delivery quantity for {item.inventory.product.product_name}. Must be 0 or greater."
+                            )
+                            continue
+                        else:
+                            # Increment delivered quantity
+                            update_inventory_for_item(item, newly_delivered_quantity)
+                            item.delivered_quantity += newly_delivered_quantity
+                            item.save()
+
+                    purchase.status = 'Partially Delivered'
+
+                elif new_status == 'Delivered':
+                    # Fully deliver all items
+                    for item in purchase.items.all():
+                        if item.delivered_quantity < item.quantity:
+                            remaining_quantity = item.quantity - item.delivered_quantity
+                            update_inventory_for_item(item, remaining_quantity)
+                            item.delivered_quantity = item.quantity
+                            item.save()
+                    purchase.status = 'Delivered'
+
+                purchase.save()
+                messages.success(request, f"Purchase {purchase.purchase_code} status updated to {new_status}.")
+
+        except Exception as e:
+            messages.error(request, f"Error updating status: {e}")
 
     return redirect('purchases:purchase_index')
 
 
-def purchase_detail(request, id):
-    # Fetch the purchase object by its ID
-    purchase = get_object_or_404(Purchase, id=id)
-
-    # Pass the purchase object to the template
-    return render(request, 'purchases/purchase_detail.html', {'purchase': purchase})
-
-
-
-
 def purchase_index(request):
     purchases = Purchase.objects.annotate(product_count=Count('items'))
+    for purchase in purchases:
+        for item in purchase.items.all():
+            item.remaining_quantity = item.quantity - item.delivered_quantity
     return render(request, 'purchases/index.html', {'purchases': purchases})
+
+
+def purchase_detail(request, id):
+    purchase = get_object_or_404(Purchase, id=id)
+    return render(request, 'purchases/purchase_detail.html', {'purchase': purchase})
