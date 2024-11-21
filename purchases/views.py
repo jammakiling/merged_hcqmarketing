@@ -7,6 +7,8 @@ from .models import Purchase, PurchaseItem
 from .forms import PurchaseForm, PurchaseItemFormSet
 from suppliers.models import Supplier
 from inventory.models import Inventory
+from .models import Purchase, PurchaseItem
+from inventory.models import StockHistory
 
 
 def update_inventory_for_item(item, added_quantity, reverse=False):
@@ -14,10 +16,8 @@ def update_inventory_for_item(item, added_quantity, reverse=False):
        If reverse=True, we subtract the delivered quantity, otherwise add it."""
     inventory = item.inventory
     if reverse:
-        # Reverse the delivery by subtracting the delivered quantity from the stock
         inventory.inventory_stock -= item.delivered_quantity
     else:
-        # Add the added quantity to inventory
         inventory.inventory_stock += added_quantity
     inventory.save()
 
@@ -76,16 +76,24 @@ def add_purchase(request):
         'inventories': inventories,
     })
 
-
+def log_stock_history(item, status, remarks, quantity):
+    """Log stock history for the item."""
+    StockHistory.objects.create(
+        inventory=item.inventory,
+        purchase=item.purchase,
+        status=status,
+        delivered_quantity=quantity,
+        remarks=remarks
+    )
 def change_purchase_status(request, id):
     if request.method == 'POST':
         purchase = get_object_or_404(Purchase, id=id)
         new_status = request.POST.get('status')
+        remarks = request.POST.get('remarks', '')
 
         try:
             with transaction.atomic():
                 if new_status == 'Pending':
-                    # Reset delivered quantities and subtract from inventory
                     for item in purchase.items.all():
                         if item.delivered_quantity > 0:
                             update_inventory_for_item(item, -item.delivered_quantity, reverse=True)
@@ -118,30 +126,36 @@ def change_purchase_status(request, id):
                             )
                             continue
                         else:
-                            # Increment delivered quantity
                             update_inventory_for_item(item, newly_delivered_quantity)
                             item.delivered_quantity += newly_delivered_quantity
                             item.save()
+                            log_stock_history(item, 'Partially Delivered', remarks, newly_delivered_quantity)
 
                     purchase.status = 'Partially Delivered'
 
                 elif new_status == 'Delivered':
-                    # Fully deliver all items
                     for item in purchase.items.all():
                         if item.delivered_quantity < item.quantity:
                             remaining_quantity = item.quantity - item.delivered_quantity
                             update_inventory_for_item(item, remaining_quantity)
                             item.delivered_quantity = item.quantity
                             item.save()
+                            log_stock_history(item, 'Delivered', remarks, remaining_quantity)
+
                     purchase.status = 'Delivered'
 
                 purchase.save()
                 messages.success(request, f"Purchase {purchase.purchase_code} status updated to {new_status}.")
 
+                # Redirect after successful processing
+                return redirect('purchases:purchase_detail', id=purchase.id)
+
         except Exception as e:
             messages.error(request, f"Error updating status: {e}")
 
-    return redirect('purchases:purchase_index')
+    # Redirect or render in case of error or non-POST request
+    return redirect('purchases:purchase_detail', id=id)
+
 
 
 def purchase_index(request):

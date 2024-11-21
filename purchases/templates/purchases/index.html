@@ -117,6 +117,12 @@
                         </table>
                     </div>
 
+                    <div id="remarksSection{{ purchase.id }}" class="mt-3" 
+                         {% if purchase.status != "Delivered" and purchase.status != "Partially Delivered" %}style="display: none;"{% endif %}>
+                        <label for="remarks" class="form-label">Remarks</label>
+                        <textarea name="remarks" id="remarks-{{ purchase.id }}" class="form-control" rows="3" placeholder="Enter remarks..."></textarea>
+                    </div>
+
                     <button type="submit" class="btn btn-success mt-3">Update Status</button>
                 </form>
             </div>
@@ -125,19 +131,16 @@
 </div>
 {% endfor %}
 
-
 <script>
     document.querySelectorAll('[id^="status-"]').forEach(select => {
         select.addEventListener('change', function() {
             const purchaseId = this.id.replace('status-', '');
             const partialDeliverySection = document.getElementById(`partialDeliverySection${purchaseId}`);
+            const remarksSection = document.getElementById(`remarksSection${purchaseId}`);
             const selectedValue = this.value;
 
-            if (selectedValue === 'Partially Delivered') {
-                partialDeliverySection.style.display = '';
-            } else {
-                partialDeliverySection.style.display = 'none';
-            }
+            partialDeliverySection.style.display = (selectedValue === 'Partially Delivered') ? '' : 'none';
+            remarksSection.style.display = (selectedValue === 'Delivered' || selectedValue === 'Partially Delivered') ? '' : 'none';
 
             if (selectedValue === 'Pending') {
                 const confirmReset = confirm(
@@ -150,19 +153,10 @@
         });
     });
 
-    // Show the modal with invalid input and highlight errors
     const invalidModalId = "{{ request.POST.modal_id|default:'' }}";
     if (invalidModalId) {
         const modal = document.getElementById(invalidModalId);
         if (modal) {
-            // Highlight invalid fields in the modal
-            const invalidFields = modal.querySelectorAll('.is-invalid');
-            invalidFields.forEach(field => {
-                field.classList.add('border-danger');
-                field.addEventListener('input', () => field.classList.remove('border-danger'));
-            });
-
-            // Show the modal
             const bootstrapModal = new bootstrap.Modal(modal);
             bootstrapModal.show();
         }

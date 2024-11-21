@@ -35,7 +35,7 @@
                             <tbody>
                                 {% for inventory in inventories %}
                                     <tr>
-                                        <td>{{ inventory.product.product_code }}</td>
+                                        <td><a href="{% url 'inventory:product_detail' inventory.product.id %}">{{ inventory.product.product_code }}</a></td>
                                         <td>{{ inventory.product.product_name }}</td>
                                         <td>{{ inventory.product.product_descript }}</td>
                                         <td>{{ inventory.product.product_price }}</td>
