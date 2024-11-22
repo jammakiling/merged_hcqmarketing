@@ -7,5 +7,6 @@ urlpatterns = [
     path('purchases/', views.purchase_index, name='purchase_index'),
     path('add/', views.add_purchase, name='add_purchase'),
     path('change_status/<int:id>/', views.change_purchase_status, name='change_purchase_status'),
-    path('purchase/<int:id>/', views.purchase_detail, name='purchase_detail'),
+    path('<int:purchase_id>/', views.purchase_detail, name='purchase_detail'),
+    path('<int:purchase_id>/add_invoice/', views.add_invoice, name='add_invoice'),
 ]

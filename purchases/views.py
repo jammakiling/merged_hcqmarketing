@@ -2,13 +2,14 @@ from django.contrib import messages
 from django.db import transaction, IntegrityError
 from django.db.models import Count
 from django.shortcuts import render, redirect, get_object_or_404
+from django.http import JsonResponse
 from datetime import datetime
 from .models import Purchase, PurchaseItem
 from .forms import PurchaseForm, PurchaseItemFormSet
 from suppliers.models import Supplier
-from inventory.models import Inventory
-from .models import Purchase, PurchaseItem
-from inventory.models import StockHistory
+from inventory.models import Inventory, StockHistory
+from .models import Invoice
+from .forms import InvoiceForm
 
 
 def update_inventory_for_item(item, added_quantity, reverse=False):
@@ -16,10 +17,23 @@ def update_inventory_for_item(item, added_quantity, reverse=False):
        If reverse=True, we subtract the delivered quantity, otherwise add it."""
     inventory = item.inventory
     if reverse:
+        # Subtract the delivered quantity to revert the change
         inventory.inventory_stock -= item.delivered_quantity
     else:
+        # Add the newly delivered quantity
         inventory.inventory_stock += added_quantity
     inventory.save()
+
+
+def log_stock_history(item, status, remarks, quantity):
+    """Log stock history for the item."""
+    StockHistory.objects.create(
+        inventory=item.inventory,
+        purchase=item.purchase,
+        status=status,
+        delivered_quantity=quantity,
+        remarks=remarks
+    )
 
 
 def add_purchase(request):
@@ -76,20 +90,13 @@ def add_purchase(request):
         'inventories': inventories,
     })
 
-def log_stock_history(item, status, remarks, quantity):
-    """Log stock history for the item."""
-    StockHistory.objects.create(
-        inventory=item.inventory,
-        purchase=item.purchase,
-        status=status,
-        delivered_quantity=quantity,
-        remarks=remarks
-    )
+
 def change_purchase_status(request, id):
+    purchase = get_object_or_404(Purchase, id=id)
+
     if request.method == 'POST':
-        purchase = get_object_or_404(Purchase, id=id)
         new_status = request.POST.get('status')
-        remarks = request.POST.get('remarks', '')
+        remarks = request.POST.get('remarks', '')  # Getting remarks from the POST request
 
         try:
             with transaction.atomic():
@@ -126,14 +133,18 @@ def change_purchase_status(request, id):
                             )
                             continue
                         else:
+                            # Update inventory for the newly delivered quantity
                             update_inventory_for_item(item, newly_delivered_quantity)
                             item.delivered_quantity += newly_delivered_quantity
                             item.save()
+
+                            # Log stock history with remarks
                             log_stock_history(item, 'Partially Delivered', remarks, newly_delivered_quantity)
 
                     purchase.status = 'Partially Delivered'
 
                 elif new_status == 'Delivered':
+                    # Ensure all items are fully delivered
                     for item in purchase.items.all():
                         if item.delivered_quantity < item.quantity:
                             remaining_quantity = item.quantity - item.delivered_quantity
@@ -144,20 +155,41 @@ def change_purchase_status(request, id):
 
                     purchase.status = 'Delivered'
 
+                    # Inform the user to add invoice details
+                    if not hasattr(purchase, 'invoice'):
+                        messages.info(request, "Status updated to Delivered. Please add invoice details.")
+
                 purchase.save()
                 messages.success(request, f"Purchase {purchase.purchase_code} status updated to {new_status}.")
-
-                # Redirect after successful processing
-                return redirect('purchases:purchase_detail', id=purchase.id)
+                return redirect('purchases:purchase_detail', purchase_id=purchase.id)
 
         except Exception as e:
             messages.error(request, f"Error updating status: {e}")
 
-    # Redirect or render in case of error or non-POST request
-    return redirect('purchases:purchase_detail', id=id)
+    return redirect('purchases:purchase_detail', purchase_id=id)
 
+def add_invoice(request, purchase_id):
+    purchase = get_object_or_404(Purchase, id=purchase_id)
 
+    if request.method == 'POST':
+        # Save the invoice
+        invoice_number = request.POST.get('invoice_number')
+        invoice_date = request.POST.get('invoice_date')
+        shipment_date = request.POST.get('shipment_date')
+        remarks = request.POST.get('remarks')
 
+        invoice = Invoice.objects.create(
+            purchase=purchase,
+            invoice_number=invoice_number,
+            invoice_date=invoice_date,
+            shipment_date=shipment_date,
+            remarks=remarks,
+        )
+        
+        # Redirect to purchase detail page after saving the invoice
+        return redirect('purchases:purchase_detail', purchase_id=purchase.id)
+
+    return render(request, 'purchases/add_invoice.html', {'purchase': purchase})
 def purchase_index(request):
     purchases = Purchase.objects.annotate(product_count=Count('items'))
     for purchase in purchases:
@@ -166,6 +198,19 @@ def purchase_index(request):
     return render(request, 'purchases/index.html', {'purchases': purchases})
 
 
-def purchase_detail(request, id):
-    purchase = get_object_or_404(Purchase, id=id)
-    return render(request, 'purchases/purchase_detail.html', {'purchase': purchase})
+def purchase_detail(request, purchase_id):
+    # Fetch the purchase object using the purchase_id
+    purchase = get_object_or_404(Purchase, id=purchase_id)
+
+    # Fetch the associated invoice if the status is "Delivered"
+    invoice = None
+    if purchase.status == 'Delivered':
+        try:
+            invoice = Invoice.objects.get(purchase=purchase)
+        except Invoice.DoesNotExist:
+            invoice = None
+
+    return render(request, 'purchases/purchase_detail.html', {
+        'purchase': purchase,
+        'invoice': invoice
+    })

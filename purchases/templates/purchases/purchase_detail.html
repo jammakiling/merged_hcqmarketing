@@ -37,6 +37,30 @@
                     </tbody>
                 </table>
 
+                {% if invoice %}
+                    <h5>Invoice Details</h5>
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th scope="col">Invoice Number</th>
+                                <th scope="col">Invoice Date</th>
+                                <th scope="col">Shipment Date</th>
+                                <th scope="col">Remarks</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>{{ invoice.invoice_number }}</td>
+                                <td>{{ invoice.invoice_date|date:"Y-m-d" }}</td>
+                                <td>{{ invoice.shipment_date|date:"Y-m-d" }}</td>
+                                <td>{{ invoice.remarks }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                {% else %}
+                    <p>No invoice found for this purchase.</p>
+                {% endif %}
+
                 <!-- Button to trigger modal for editing status -->
                 <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#editStatusModal">
                     Edit Status

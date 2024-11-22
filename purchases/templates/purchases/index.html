@@ -37,6 +37,11 @@
                                     <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#editStatusModal{{ purchase.id }}">
                                         Edit Status
                                     </button>
+                                    {% if purchase.status == 'Delivered' and not purchase.invoice %}
+                                        <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addInvoiceModal{{ purchase.id }}">
+                                            Add Invoice Details
+                                        </button>
+                                    {% endif %}
                                 </td>
                             </tr>
                             {% endfor %}
@@ -85,7 +90,9 @@
                         </select>
                     </div>
 
-                    <div id="partialDeliverySection{{ purchase.id }}" class="mt-3" {% if purchase.status != "Partially Delivered" %}style="display: none;"{% endif %}>
+                    <!-- Partial Delivery Section -->
+                    <div id="partialDeliverySection{{ purchase.id }}" class="mt-3" 
+                         {% if purchase.status == "Partially Delivered" %}style="display: block;"{% else %}style="display: none;"{% endif %}>
                         <h6>Update Partially Delivered Quantities</h6>
                         <table class="table table-sm table-bordered">
                             <thead>
@@ -117,13 +124,90 @@
                         </table>
                     </div>
 
+                    <!-- Remarks Section -->
                     <div id="remarksSection{{ purchase.id }}" class="mt-3" 
-                         {% if purchase.status != "Delivered" and purchase.status != "Partially Delivered" %}style="display: none;"{% endif %}>
+                         {% if purchase.status == "Delivered" or purchase.status == "Partially Delivered" %}style="display: block;"{% else %}style="display: none;"{% endif %}>
                         <label for="remarks" class="form-label">Remarks</label>
                         <textarea name="remarks" id="remarks-{{ purchase.id }}" class="form-control" rows="3" placeholder="Enter remarks..."></textarea>
                     </div>
 
-                    <button type="submit" class="btn btn-success mt-3">Update Status</button>
+                    <div id="invoiceButtonSection{{ purchase.id }}" class="mt-3" 
+                         {% if purchase.status != "Delivered" %}style="display: none;"{% endif %}>
+                        <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addInvoiceModal{{ purchase.id }}">
+                            Add Invoice Details
+                        </button>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary mt-3">Update Status</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Invoice Details Modal -->
+<div class="modal fade" id="addInvoiceModal{{ purchase.id }}" tabindex="-1" aria-labelledby="addInvoiceModalLabel{{ purchase.id }}" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addInvoiceModalLabel{{ purchase.id }}">Add Invoice Details for {{ purchase.purchase_code }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form method="POST" action="{% url 'purchases:add_invoice' purchase.id %}">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="invoice_number" class="form-label">Invoice Number</label>
+                        <input type="text" name="invoice_number" class="form-control" placeholder="Enter Invoice Number" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="invoice_date" class="form-label">Invoice Date</label>
+                        <input type="date" name="invoice_date" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="cargo_name" class="form-label">Cargo Name</label>
+                        <input type="text" name="cargo_name" class="form-control" placeholder="Enter Cargo Name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="cargo_number" class="form-label">Cargo Number</label>
+                        <input type="text" name="cargo_number" class="form-control" placeholder="Enter Cargo Number" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="shipment_date" class="form-label">Shipment Date</label>
+                        <input type="date" name="shipment_date" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="status" class="form-label">Status</label>
+                        <select name="status" class="form-select" required>
+                            <option value="Paid">Paid</option>
+                            <option value="Unpaid">Unpaid</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="term" class="form-label">Term</label>
+                        <select name="term" class="form-select" required>
+                            <option value="30 Days">30 Days</option>
+                            <option value="60 Days">60 Days</option>
+                            <option value="90 Days">90 Days</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="checked_by" class="form-label">Checked By</label>
+                        <input type="text" name="checked_by" class="form-control" placeholder="Enter Checked By" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="received_by" class="form-label">Received By</label>
+                        <input type="text" name="received_by" class="form-control" placeholder="Enter Received By" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="refer_to" class="form-label">Refer to Purchase Order #</label>
+                        <input type="text" name="refer_to" class="form-control" placeholder="Enter Purchase Order #" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="remarks" class="form-label">Remarks</label>
+                        <textarea name="remarks" class="form-control" rows="3" placeholder="Enter any remarks"></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-success">Save Invoice</button>
                 </form>
             </div>
         </div>
@@ -137,29 +221,15 @@
             const purchaseId = this.id.replace('status-', '');
             const partialDeliverySection = document.getElementById(`partialDeliverySection${purchaseId}`);
             const remarksSection = document.getElementById(`remarksSection${purchaseId}`);
+            const invoiceButtonSection = document.getElementById(`invoiceButtonSection${purchaseId}`);
             const selectedValue = this.value;
 
+            // Show partial delivery section if status is Partially Delivered
             partialDeliverySection.style.display = (selectedValue === 'Partially Delivered') ? '' : 'none';
             remarksSection.style.display = (selectedValue === 'Delivered' || selectedValue === 'Partially Delivered') ? '' : 'none';
-
-            if (selectedValue === 'Pending') {
-                const confirmReset = confirm(
-                    "Resetting the status to 'Pending' will erase all partially delivered quantities. Do you want to continue?"
-                );
-                if (!confirmReset) {
-                    this.value = ''; // Reset the dropdown if the user cancels
-                }
-            }
+            invoiceButtonSection.style.display = (selectedValue === 'Delivered') ? '' : 'none';
         });
     });
-
-    const invalidModalId = "{{ request.POST.modal_id|default:'' }}";
-    if (invalidModalId) {
-        const modal = document.getElementById(invalidModalId);
-        if (modal) {
-            const bootstrapModal = new bootstrap.Modal(modal);
-            bootstrapModal.show();
-        }
-    }
 </script>
+
 {% endblock %}

@@ -1,6 +1,19 @@
 from django import forms
 from .models import Purchase, PurchaseItem
 from django.forms import modelformset_factory
+from .models import Invoice
+
+class InvoiceForm(forms.ModelForm):
+    class Meta:
+        model = Invoice
+        fields = [
+            'invoice_number', 'invoice_date', 'cargo_name', 'cargo_number',
+            'shipment_date', 'status', 'term', 'checked_by', 'received_by', 'remarks'
+        ]
+        widgets = {
+            'invoice_date': forms.DateInput(attrs={'type': 'date'}),
+            'shipment_date': forms.DateInput(attrs={'type': 'date'}),
+        }
 
 class PurchaseForm(forms.ModelForm):
     class Meta:
