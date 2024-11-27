@@ -2,6 +2,7 @@ from django.db import models
 from suppliers.models import Supplier
 from inventory.models import Inventory
 import uuid
+from django.core.exceptions import ValidationError
 
 class Purchase(models.Model):
     STATUS_CHOICES = [
@@ -18,7 +19,7 @@ class Purchase(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Pending')
 
     def __str__(self):
-        return f"Purchase {self.purchase_code} from {self.supplier.name} on {self.date}"
+        return f"Purchase {self.purchase_code} from {self.supplier.supplier_hardware} on {self.date}"
 
     def save(self, *args, **kwargs):
         if not self.purchase_code:  # Generate code only if it doesn't exist
@@ -67,3 +68,18 @@ class Invoice(models.Model):
 
     def __str__(self):
         return f"Invoice {self.invoice_number} for {self.purchase.purchase_code}"
+    
+    # In models.py
+
+class PurchaseReturn(models.Model):
+    purchase = models.ForeignKey(Purchase, on_delete=models.CASCADE)
+    return_date = models.DateField(auto_now_add=True)
+
+class PurchaseReturnItem(models.Model):
+    purchase_return = models.ForeignKey(PurchaseReturn, on_delete=models.CASCADE, related_name="items")
+    item = models.ForeignKey(PurchaseItem, on_delete=models.CASCADE, null=True, blank=False)
+    returned_quantity = models.PositiveIntegerField()
+
+    def clean(self):
+        if self.returned_quantity > self.item.quantity_delivered:
+            raise ValidationError("Return quantity cannot exceed the delivered quantity.")

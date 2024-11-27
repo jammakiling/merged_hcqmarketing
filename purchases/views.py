@@ -1,6 +1,7 @@
 from django.contrib import messages
 from django.db import transaction, IntegrityError
 from django.db.models import Count
+from django.forms import modelformset_factory
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse
 from datetime import datetime
@@ -10,6 +11,53 @@ from suppliers.models import Supplier
 from inventory.models import Inventory, StockHistory
 from .models import Invoice
 from .forms import InvoiceForm
+from .forms import PurchaseReturnForm, PurchaseReturnItemForm
+# In views.py
+
+from .models import PurchaseReturn, PurchaseReturnItem
+from .forms import PurchaseReturnForm, PurchaseReturnItemFormSet
+
+def purchase_return_list(request):
+    returns = PurchaseReturn.objects.all().order_by('-return_date')
+    return render(request, 'purchases/purchase_return.html', {'returns': returns})
+
+
+def create_purchase_return(request):
+    PurchaseReturnItemFormSet = modelformset_factory(
+        PurchaseReturnItem,
+        form=PurchaseReturnItemForm,
+        extra=1,
+        can_delete=True,
+    )
+
+    if request.method == "POST":
+        purchase_return_form = PurchaseReturnForm(request.POST)
+        formset = PurchaseReturnItemFormSet(request.POST, queryset=PurchaseReturnItem.objects.none())
+
+        if purchase_return_form.is_valid():
+            purchase_return = purchase_return_form.save(commit=False)
+            formset = PurchaseReturnItemFormSet(request.POST, queryset=PurchaseReturnItem.objects.none())
+            purchase_return.save()
+
+            for form in formset:
+                item_instance = form.save(commit=False)
+                item_instance.purchase_return = purchase_return
+                item_instance.clean()
+                item_instance.save()
+
+            return redirect("purchase_returns_list")  # Redirect after successful save
+    else:
+        purchase_return_form = PurchaseReturnForm()
+        formset = PurchaseReturnItemFormSet(queryset=PurchaseReturnItem.objects.none())
+
+    return render(
+        request,
+        "purchases/create_purchase_return.html",
+        {
+            "purchase_return_form": purchase_return_form,
+            "formset": formset,
+        },
+    )
 
 
 def update_inventory_for_item(item, added_quantity, reverse=False):
@@ -96,11 +144,14 @@ def change_purchase_status(request, id):
 
     if request.method == 'POST':
         new_status = request.POST.get('status')
-        remarks = request.POST.get('remarks', '')  # Getting remarks from the POST request
+        remarks = request.POST.get('remarks', '')  # Optional remarks field
 
         try:
             with transaction.atomic():
+                all_items_fully_delivered = True  # Flag to check if all items are fully delivered
+
                 if new_status == 'Pending':
+                    # Reset delivery for all items and revert inventory
                     for item in purchase.items.all():
                         if item.delivered_quantity > 0:
                             update_inventory_for_item(item, -item.delivered_quantity, reverse=True)
@@ -109,12 +160,14 @@ def change_purchase_status(request, id):
                     purchase.status = 'Pending'
 
                 elif new_status == 'Partially Delivered':
+                    # Update delivery quantities for partial delivery
                     for item in purchase.items.all():
                         delivered_key = f"delivered_quantity_{item.id}"
                         try:
                             newly_delivered_quantity = int(request.POST.get(delivered_key, 0))
                         except ValueError:
                             messages.error(request, f"Invalid input for {item.inventory.product.product_name}.")
+                            all_items_fully_delivered = False
                             continue
 
                         remaining_quantity = item.quantity - item.delivered_quantity
@@ -122,15 +175,17 @@ def change_purchase_status(request, id):
                         if newly_delivered_quantity > remaining_quantity:
                             messages.error(
                                 request,
-                                f"Cannot deliver more than the remaining quantity for {item.inventory.product.product_name}. "
+                                f"Cannot deliver more than remaining quantity for {item.inventory.product.product_name}. "
                                 f"Ordered: {item.quantity}, Already Delivered: {item.delivered_quantity}, Remaining: {remaining_quantity}."
                             )
+                            all_items_fully_delivered = False
                             continue
                         elif newly_delivered_quantity < 0:
                             messages.error(
                                 request,
                                 f"Invalid delivery quantity for {item.inventory.product.product_name}. Must be 0 or greater."
                             )
+                            all_items_fully_delivered = False
                             continue
                         else:
                             # Update inventory for the newly delivered quantity
@@ -138,10 +193,26 @@ def change_purchase_status(request, id):
                             item.delivered_quantity += newly_delivered_quantity
                             item.save()
 
-                            # Log stock history with remarks
+                            # Log stock history
                             log_stock_history(item, 'Partially Delivered', remarks, newly_delivered_quantity)
 
-                    purchase.status = 'Partially Delivered'
+                        # Check if the current item is fully delivered
+                        if item.delivered_quantity < item.quantity:
+                            all_items_fully_delivered = False
+
+                    if all_items_fully_delivered:
+                        # If all items are fully delivered, transition to "Delivered"
+                        purchase.status = 'Delivered'
+                        for item in purchase.items.all():
+                            remaining_quantity = item.quantity - item.delivered_quantity
+                            if remaining_quantity > 0:
+                                update_inventory_for_item(item, remaining_quantity)
+                                log_stock_history(item, 'Delivered', remarks, remaining_quantity)
+                                item.delivered_quantity = item.quantity
+                                item.save()
+                    else:
+                        # If not all items are fully delivered, set status to "Partially Delivered"
+                        purchase.status = 'Partially Delivered'
 
                 elif new_status == 'Delivered':
                     # Ensure all items are fully delivered
@@ -155,18 +226,20 @@ def change_purchase_status(request, id):
 
                     purchase.status = 'Delivered'
 
-                    # Inform the user to add invoice details
+                    # Inform user to add invoice details
                     if not hasattr(purchase, 'invoice'):
                         messages.info(request, "Status updated to Delivered. Please add invoice details.")
 
                 purchase.save()
-                messages.success(request, f"Purchase {purchase.purchase_code} status updated to {new_status}.")
+                messages.success(request, f"Purchase {purchase.purchase_code} status updated to {purchase.status}.")
                 return redirect('purchases:purchase_detail', purchase_id=purchase.id)
 
         except Exception as e:
             messages.error(request, f"Error updating status: {e}")
 
     return redirect('purchases:purchase_detail', purchase_id=id)
+
+
 
 def add_invoice(request, purchase_id):
     purchase = get_object_or_404(Purchase, id=purchase_id)
@@ -214,3 +287,24 @@ def purchase_detail(request, purchase_id):
         'purchase': purchase,
         'invoice': invoice
     })
+
+def get_items_for_purchase(request, purchase_id):
+    # Get the purchase object
+    purchase = Purchase.objects.get(id=purchase_id)
+
+    # Get the items under this purchase
+    items = purchase.items.all()
+
+    # Prepare the data for the response
+    data = {
+        'items': [
+            {
+                'id': item.id,
+                'name': item.inventory.product.product_name,  # Use product name if you want
+                'quantity_delivered': item.delivered_quantity,  # Use delivered quantity to limit return quantity
+            }
+            for item in items
+        ]
+    }
+
+    return JsonResponse(data)

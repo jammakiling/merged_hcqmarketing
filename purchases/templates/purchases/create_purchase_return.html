@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+
+{% block body %}
+<h3 class="m-4">Create Purchase Return</h3>
+<div class="container">
+    {% if success %}
+        <div class="alert alert-success">
+            Purchase return created successfully!
+        </div>
+    {% endif %}
+    
+    <!-- Display form errors if any -->
+    {% if purchase_return_form.errors %}
+        <div class="alert alert-danger">
+            <ul>
+                {% for field in purchase_return_form %}
+                    {% for error in field.errors %}
+                        <li>{{ error }}</li>
+                    {% endfor %}
+                {% endfor %}
+            </ul>
+        </div>
+    {% endif %}
+    
+    <form method="post">
+        {% csrf_token %}
+        
+        <!-- Render the purchase return form fields -->
+        <div class="mb-3">
+            {{ purchase_return_form.as_p }}
+        </div>
+
+        <h5>Item Returns</h5>
+        <table class="table table-bordered">
+            <thead>
+                <tr>
+                    <th>Item</th>
+                    <th>Return Quantity</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{ formset.management_form }}
+                {% for form in formset %}
+                    <tr>
+                        <td>
+                            <div class="form-group">
+                                {{ form.item }}
+                            </div>
+                        </td>
+                        <td>
+                            <div class="form-group">
+                                {{ form.return_quantity }}
+                                <small class="text-danger">Maximum: {{ form.item.quantity_delivered }}</small>
+                            </div>
+                        </td>
+                        <td>
+                            <button type="button" class="btn btn-danger delete-row">Remove</button>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <button type="submit" class="btn btn-primary">Save</button>
+    </form>
+</div>
+
+<script>
+    // Dynamically update items based on the selected purchase
+    document.querySelector('[name="purchase"]').addEventListener('change', function () {
+        const purchaseId = this.value;
+        
+        // Fetch the items of the selected purchase
+        fetch(`/purchases/get_items_for_purchase/${purchaseId}/`)  // Adjust this endpoint to match your URL
+            .then(response => response.json())
+            .then(data => {
+                // Update each item selection with the items of the selected purchase
+                document.querySelectorAll('[name^="form-"][name$="-item"]').forEach((select, index) => {
+                    select.innerHTML = ''; // Clear the existing options
+
+                    // Populate the item dropdown based on the selected purchase's items
+                    data.items.forEach(item => {
+                        const option = new Option(`${item.name} (Delivered: ${item.quantity_delivered})`, item.id);
+                        select.appendChild(option);
+                    });
+
+                    // Set the maximum return quantity for each item
+                    const itemId = select.value; // Current selected item ID
+                    const selectedItem = data.items.find(item => item.id == itemId);
+                    if (selectedItem) {
+                        const returnQuantityInput = select.closest('tr').querySelector('[name^="form-"][name$="-return_quantity"]');
+                        returnQuantityInput.max = selectedItem.quantity_delivered; // Set max return quantity
+                        returnQuantityInput.value = Math.min(returnQuantityInput.value || 0, selectedItem.quantity_delivered); // Ensure quantity does not exceed max
+                    }
+                });
+            });
+    });
+</script>
+
+{% endblock %}

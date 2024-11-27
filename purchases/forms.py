@@ -1,7 +1,8 @@
 from django import forms
-from .models import Purchase, PurchaseItem
+from .models import Purchase, PurchaseItem, PurchaseReturn, PurchaseReturnItem
 from django.forms import modelformset_factory
 from .models import Invoice
+from django.forms import modelformset_factory
 
 class InvoiceForm(forms.ModelForm):
     class Meta:
@@ -34,3 +35,30 @@ class PurchaseItemForm(forms.ModelForm):
         }
 
 PurchaseItemFormSet = modelformset_factory(PurchaseItem, form=PurchaseItemForm, extra=1)
+
+
+class PurchaseReturnForm(forms.ModelForm):
+    class Meta:
+        model = PurchaseReturn
+        fields = ['purchase']
+
+class PurchaseReturnItemForm(forms.ModelForm):
+    class Meta:
+        model = PurchaseReturnItem
+        fields = ['item', 'returned_quantity']
+
+    def __init__(self, *args, **kwargs):
+        purchase=None
+        if "purchase" in kwargs:
+            purchase=kwargs.pop("purchase")
+        super().__init__(*args, **kwargs)
+        # Dynamically filter items based on purchase
+        if purchase:
+            self.fields['item'].queryset = PurchaseItem.objects.filter(purchase=purchase)
+
+PurchaseReturnItemFormSet = modelformset_factory(
+    PurchaseReturnItem,
+    form=PurchaseReturnItemForm,
+    extra=1,  # Allows one extra blank form for input
+    can_delete=True  # Enables the ability to delete rows in the formset
+)

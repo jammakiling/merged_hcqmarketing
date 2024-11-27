@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+
+{% block body %}
+<h3 class="m-4">New Sales</h3>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card bg-light ms-4 me-4 mb-4">
+            <div class="card-header">
+                <h5 class="card-title">Sales Details</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    {% csrf_token %}
+
+                    <!-- Display form errors if any -->
+                    {% if sale_form.errors %}
+                        <ul style="color: red;">
+                            {% for field, errors in sale_form.errors.items %}
+                                <li><strong>{{ field }}:</strong>
+                                    {% for error in errors %}
+                                        <p>{{ error }}</p>
+                                    {% endfor %}
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    {% endif %}
+
+                    <!-- Customer Name -->
+                    <div class="mb-3">
+                        <label for="id_customer_name" class="form-label">Customer Name</label>
+                        {{ sale_form.customer_name }}
+                    </div>
+
+                    <!-- Status -->
+                    <div class="mb-3">
+                        <label for="id_status" class="form-label">Status</label>
+                        {{ sale_form.status }}
+                    </div>
+
+                    <!-- Total Cost -->
+                    <div class="mb-3">
+                        <label for="id_total_cost" class="form-label">Total Cost</label>
+                        {{ sale_form.total_cost }}
+                    </div>
+
+                    <!-- Sale Items Container -->
+                    <div id="sale-items" class="mb-3">
+                        <h5 class="card-title">Products</h5>
+
+                        <!-- Hidden Input for Django Formset Management -->
+                        {{ formset.management_form }}
+                        
+                        {% for form in formset %}
+                        <div class="sale-item mb-3" id="item-{{ forloop.counter0 }}">
+                            <div class="row">
+                                <!-- Product Dropdown -->
+                                <div class="col-md-4">
+                                    <label class="form-label">Product</label>
+                                    {{ form.product }}
+                                </div>
+
+                                <!-- Quantity Input -->
+                                <div class="col-md-4">
+                                    <label class="form-label">Quantity</label>
+                                    {{ form.quantity }}
+                                </div>
+
+                                <!-- Price Input -->
+                                <div class="col-md-3">
+                                    <label class="form-label">Price</label>
+                                    {{ form.price_per_unit }}
+                                </div>
+
+                                <!-- Delete Button -->
+                                <div class="col-md-1 d-flex align-items-end">
+                                    <button type="button" class="btn btn-danger btn-sm delete-row">X</button>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    <!-- Add More Products Button -->
+                    <button type="button" id="add-more" class="btn btn-primary mb-3">Add More Products</button>
+
+                    <!-- Submit Button -->
+                    <div class="mb-3 text-center">
+                        <button type="submit" class="btn btn-success">Save Sale</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    let totalFormsInput = document.querySelector('#id_form-TOTAL_FORMS');
+
+    // Function to update form indices
+    function updateFormIndices() {
+        document.querySelectorAll('.sale-item').forEach((item, index) => {
+            item.id = `item-${index}`;
+            item.querySelectorAll('select, input').forEach(input => {
+                input.name = input.name.replace(/form-\d+-/, `form-${index}-`);
+                input.id = input.id.replace(/form-\d+-/, `form-${index}-`);
+            });
+        });
+        totalFormsInput.value = document.querySelectorAll('.sale-item').length;
+    }
+
+    // Add new product row
+    document.querySelector('#add-more').addEventListener('click', function () {
+        let itemCount = document.querySelectorAll('.sale-item').length;
+        const newItem = document.createElement('div');
+        newItem.classList.add('sale-item', 'mb-3');
+        newItem.id = `item-${itemCount}`;
+        newItem.innerHTML = `
+            <div class="row">
+                <div class="col-md-4">
+                    <label class="form-label">Product</label>
+                    <select name="form-${itemCount}-product" id="id_form-${itemCount}-product" class="form-select">
+                        {% for product in products %}
+                        <option value="{{ product.id }}">{{ product.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Quantity</label>
+                    <input type="number" name="form-${itemCount}-quantity" id="id_form-${itemCount}-quantity" class="form-control">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Price</label>
+                    <input type="number" name="form-${itemCount}-price" id="id_form-${itemCount}-price" class="form-control">
+                </div>
+                <div class="col-md-1 d-flex align-items-end">
+                    <button type="button" class="btn btn-danger btn-sm delete-row">X</button>
+                </div>
+            </div>`;
+        document.querySelector('#sale-items').appendChild(newItem);
+        updateFormIndices();
+    });
+
+    // Delete row
+    document.addEventListener('click', function (e) {
+        if (e.target.classList.contains('delete-row')) {
+            e.target.closest('.sale-item').remove();
+            updateFormIndices();
+        }
+    });
+});
+</script>
+{% endblock %}

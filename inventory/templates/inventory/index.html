@@ -30,6 +30,7 @@
                                 <th scope="col">Purchase Price</th>  <!-- Added Purchase Price -->
                                 <th scope="col">Stock</th>
                                 <th scope="col">Unit</th>
+                                <th scope="col">Reorder Level</th>
                             </tr>
                             </thead>
                             <tbody>
@@ -42,6 +43,7 @@
                                         <td>{{ inventory.product.purchase_price }}</td>  <!-- Display Purchase Price -->
                                         <td>{{ inventory.inventory_stock }}</td>
                                         <td>{{ inventory.product.product_unit }}</td>
+                                        <td>5</td>
                                     </tr>
                                 {% endfor %}
                             </tbody>

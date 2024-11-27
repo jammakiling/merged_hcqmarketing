@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block body %}
+
+{% if messages %}
+<div class="alert alert-success">
+    {% for message in messages %}
+        {{ message }}
+    {% endfor %}
+</div>
+{% endif %}
+
+<h3 class="m-4">Employees</h3>
+
+<div class="row">
+    <div class="col-12">
+        {% if employees %}
+        <div class="card bg-light ms-4 me-4 mb-4">
+            <div class="card-header"></div>
+            <div class="card-body">
+                <p class="card-text">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                            <tr>
+                                <th scope="col">ID</th>
+                                <th scope="col">First Name</th>
+                                <th scope="col">Middle Name</th>
+                                <th scope="col">Last Name</th>
+                                <th scope="col">Job Title</th>  
+                            </tr>
+                            </thead>
+                            <tbody>
+                                {% for employee in employees %}
+                                    <tr>
+                                        <td>{{ employee.id}}</td>
+                                        <td>{{ employee.first_name}}</td>
+                                        <td>{{ employee.middle_name}}</td>
+                                        <td>{{ employee.last_name}}</td>
+                                        <td>{{ employee.job_title}}</td> 
+                                        <td>
+                                            <form action="{% url 'delete_employee' employee.id %}" method="post">
+                                                {% csrf_token %}
+                                                <button type="submit" class="btn btn-danger">Delete</button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                    
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </p>
+            </div>
+        </div>
+
+        {% else %}
+            <h5 class="alert alert-primary ms-4 me-4"> No Employee Records </h5>
+        {% endif %}
+    </div>
+</div> 
+
+{% endblock %}
+ 
