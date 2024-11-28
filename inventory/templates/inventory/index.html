@@ -41,7 +41,14 @@
                                         <td>{{ inventory.product.product_descript }}</td>
                                         <td>{{ inventory.product.product_price }}</td>
                                         <td>{{ inventory.product.purchase_price }}</td>  <!-- Display Purchase Price -->
-                                        <td>{{ inventory.inventory_stock }}</td>
+                                        <td>
+                                            {% if inventory.product.is_serialized %}
+                                                {{ inventory.serialized_stock.count }} serialized items
+                                            {% else %}
+                                                {{ inventory.inventory_stock }}
+                                            {% endif %}
+                                        </td>
+                                        
                                         <td>{{ inventory.product.product_unit }}</td>
                                         <td>5</td>
                                     </tr>

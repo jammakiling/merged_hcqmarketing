@@ -7,7 +7,14 @@ class Inventory(models.Model):
 
     def __str__(self):
         return f"Inventory for {self.product.product_name}"
-    
+
+class SerializedInventory(models.Model):
+    inventory = models.ForeignKey(Inventory, on_delete=models.CASCADE, related_name='serialized_items')
+    serial_number = models.CharField(max_length=100, unique=True)
+    status = models.CharField(max_length=50, choices=(('Available', 'Available'), ('In Use', 'In Use'), ('Damaged', 'Damaged')), default='Available')
+
+    def __str__(self):
+        return f"{self.serial_number} ({self.inventory.product.product_name})"
 
 class StockHistory(models.Model):
     inventory = models.ForeignKey(Inventory, on_delete=models.CASCADE, related_name="stock_history")

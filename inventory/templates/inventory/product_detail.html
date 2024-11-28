@@ -13,6 +13,34 @@
     </div>
 </div>
 
+{% if serialized_items %}
+<div class="card ms-4 me-4 mb-4">
+    <div class="card-header">Serialized Stock</div>
+    <div class="card-body">
+        {% if serialized_items %}
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>Serial Number</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in serialized_items %}
+                <tr>
+                    <td>{{ item.serial_number }}</td>
+                    <td>{{ item.status }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p>No serialized stock available for this product.</p>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
 <div class="card ms-4 me-4 mb-4">
     <div class="card-header">Stock History</div>
     <div class="card-body">
