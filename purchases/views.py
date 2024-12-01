@@ -139,6 +139,8 @@ def add_purchase(request):
     })
 
 
+from inventory.models import SerializedInventory
+
 def change_purchase_status(request, id):
     purchase = get_object_or_404(Purchase, id=id)
 
@@ -156,6 +158,7 @@ def change_purchase_status(request, id):
                         if item.delivered_quantity > 0:
                             update_inventory_for_item(item, -item.delivered_quantity, reverse=True)
                             item.delivered_quantity = 0
+                            item.serial_numbers = ""  # Clear serial numbers
                             item.save()
                     purchase.status = 'Pending'
 
@@ -163,6 +166,8 @@ def change_purchase_status(request, id):
                     # Update delivery quantities for partial delivery
                     for item in purchase.items.all():
                         delivered_key = f"delivered_quantity_{item.id}"
+                        serial_numbers_key = f"serial_numbers_{item.id}"
+
                         try:
                             newly_delivered_quantity = int(request.POST.get(delivered_key, 0))
                         except ValueError:
@@ -188,7 +193,35 @@ def change_purchase_status(request, id):
                             all_items_fully_delivered = False
                             continue
                         else:
-                            # Update inventory for the newly delivered quantity
+                            # Handle serial numbers only for serialized products
+                            if item.inventory.product.is_serialized:  # Assuming `is_serialized` is a boolean field in the product model
+                                serial_numbers = request.POST.get(serial_numbers_key, '').split(',')
+                                serial_numbers = [s.strip() for s in serial_numbers if s.strip()]
+                                if len(serial_numbers) != newly_delivered_quantity:
+                                    messages.error(
+                                        request,
+                                        f"Number of serial numbers provided ({len(serial_numbers)}) does not match "
+                                        f"the delivered quantity ({newly_delivered_quantity}) for {item.inventory.product.product_name}."
+                                    )
+                                    all_items_fully_delivered = False
+                                    continue
+
+                                # Create SerializedInventory records for each serial number
+                                for serial_number in serial_numbers:
+                                    # Save the serial number into the SerializedInventory model
+                                    SerializedInventory.objects.create(
+                                        inventory=item.inventory,
+                                        serial_number=serial_number,
+                                        status="Available"  # Or adjust status if needed
+                                    )
+
+                                # Add serial numbers to the item for record keeping (if needed)
+                                if item.serial_numbers:
+                                    item.serial_numbers += "," + ",".join(serial_numbers)
+                                else:
+                                    item.serial_numbers = ",".join(serial_numbers)
+
+                            # Update inventory and save changes
                             update_inventory_for_item(item, newly_delivered_quantity)
                             item.delivered_quantity += newly_delivered_quantity
                             item.save()
@@ -200,19 +233,7 @@ def change_purchase_status(request, id):
                         if item.delivered_quantity < item.quantity:
                             all_items_fully_delivered = False
 
-                    if all_items_fully_delivered:
-                        # If all items are fully delivered, transition to "Delivered"
-                        purchase.status = 'Delivered'
-                        for item in purchase.items.all():
-                            remaining_quantity = item.quantity - item.delivered_quantity
-                            if remaining_quantity > 0:
-                                update_inventory_for_item(item, remaining_quantity)
-                                log_stock_history(item, 'Delivered', remarks, remaining_quantity)
-                                item.delivered_quantity = item.quantity
-                                item.save()
-                    else:
-                        # If not all items are fully delivered, set status to "Partially Delivered"
-                        purchase.status = 'Partially Delivered'
+                    purchase.status = 'Delivered' if all_items_fully_delivered else 'Partially Delivered'
 
                 elif new_status == 'Delivered':
                     # Ensure all items are fully delivered

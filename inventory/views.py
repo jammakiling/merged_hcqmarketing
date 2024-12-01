@@ -22,6 +22,7 @@ def product_detail(request, product_id):
     serialized_items = None
     if hasattr(inventory.product, 'is_serialized') and inventory.product.is_serialized:
         serialized_items = SerializedInventory.objects.filter(inventory=inventory)
+        print(f"Serialized items found: {serialized_items}")  # Debugging line
 
     return render(request, 'inventory/product_detail.html', {
         'inventory': inventory,

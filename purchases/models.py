@@ -32,6 +32,7 @@ class PurchaseItem(models.Model):
     quantity = models.PositiveIntegerField(default=0)
     delivered_quantity = models.PositiveIntegerField(default=0)
     price = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+    serial_numbers = models.TextField(blank=True, null=True)  # New field to store serial numbers
 
     def __str__(self):
         return f"{self.inventory.product.product_name} ({self.quantity})"
