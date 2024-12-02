@@ -43,7 +43,7 @@
                                         <td>{{ inventory.product.purchase_price }}</td>  <!-- Display Purchase Price -->
                                         <td>
                                             {% if inventory.product.is_serialized %}
-                                                {{ inventory.serialized_stock.count }} serialized items
+                                                {{ inventory.serialized_items.count }} serialized items
                                             {% else %}
                                                 {{ inventory.inventory_stock }}
                                             {% endif %}
