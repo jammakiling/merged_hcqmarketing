@@ -1,6 +1,6 @@
 from django import forms
 from .models import Purchase, PurchaseItem, PurchaseReturn, PurchaseReturnItem
-from django.forms import modelformset_factory
+from django.forms import ValidationError, modelformset_factory
 from .models import Invoice
 from django.forms import modelformset_factory
 
@@ -21,8 +21,15 @@ class PurchaseForm(forms.ModelForm):
         model = Purchase
         fields = ['supplier', 'status']
         widgets = {
-            'status': forms.Select(attrs={'class': 'form-select'}),
+            'status': forms.HiddenInput(),
         }
+
+    def save(self, commit=True):
+        purchase = super().save(commit=False)
+        purchase.status = 'Pending'  # Ensure status is always 'Pending' on creation
+        if commit:
+            purchase.save()
+        return purchase
 
 class PurchaseItemForm(forms.ModelForm):
     class Meta:
@@ -59,30 +66,41 @@ class PurchaseReturnForm(forms.ModelForm):
         model = PurchaseReturn
         fields = ['purchase']
 
+    def clean_purchase(self):
+        purchase = self.cleaned_data.get('purchase')
+        if not purchase:
+            raise ValidationError("A valid purchase must be selected.")
+        return purchase
+
 class PurchaseReturnItemForm(forms.ModelForm):
     class Meta:
         model = PurchaseReturnItem
         fields = ['item', 'returned_quantity']
 
     def __init__(self, *args, **kwargs):
-        purchase = None
-        if "purchase" in kwargs:
-            purchase = kwargs.pop("purchase")
+        purchase = kwargs.pop('purchase', None)
         super().__init__(*args, **kwargs)
-        # Dynamically filter items based on purchase
         if purchase:
             self.fields['item'].queryset = PurchaseItem.objects.filter(purchase=purchase)
+        else:
+            self.fields['item'].queryset = PurchaseItem.objects.none()
+
 
     def clean(self):
         cleaned_data = super().clean()
         item = cleaned_data.get('item')
         returned_quantity = cleaned_data.get('returned_quantity')
 
-        if item and returned_quantity:
+        if not item:
+            raise ValidationError("An item must be selected.")
+
+        if item.delivered_quantity is None:
+            raise ValidationError("The selected item does not have a valid delivered quantity.")
+
+        if returned_quantity is not None and item.delivered_quantity is not None:
             if returned_quantity > item.delivered_quantity:
-                raise forms.ValidationError(
-                    f"Returned quantity ({returned_quantity}) cannot exceed the delivered quantity ({item.delivered_quantity})."
-                )
+                raise ValidationError(f"Returned quantity ({returned_quantity}) cannot exceed delivered quantity ({item.delivered_quantity}).")
+
         return cleaned_data
 
 PurchaseReturnItemFormSet = modelformset_factory(

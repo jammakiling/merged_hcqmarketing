@@ -1,64 +1,126 @@
 {% extends "base.html" %}
 
 {% block body %}
-
-{% if messages %}
-<div class="alert alert-success">
-    {% for message in messages %}
-        {{ message }}
-    {% endfor %}
-</div>
-{% endif %}
-
-<h3 class="m-4">New Sales</h3>
+<h3 class="m-4">Sales Records</h3>
 
 <div class="row">
     <div class="col-12">
-        {% if employees %}
+        {% if sales %}
         <div class="card bg-light ms-4 me-4 mb-4">
-            <div class="card-header"></div>
+            <div class="card-header">
+                <h5 class="card-title">Sales List</h5>
+            </div>
             <div class="card-body">
-                <p class="card-text">
-                    <div class="table-responsive">
-                        <table class="table table-hover">
-                            <thead>
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
                             <tr>
-                                <th scope="col">ID</th>
+                                <th scope="col">Sales Code</th>
                                 <th scope="col">Customer</th>
                                 <th scope="col">Date</th>
                                 <th scope="col">Total Cost</th>
-                                <th scope="col">Status</th>  
+                                <th scope="col">Status</th>
+                                <th scope="col">Actions</th>
                             </tr>
-                            </thead>
-                            <tbody>
-                                {% for sales in sale %}
-                                <tr>
-                                    <td>{{ sale.id }}</td>
-                                    <td>{{ sale.customer }}</td>
-                                    <td>{{ sale.date }}</td>
-                                    <td>{{ sale.total_cost }}</td>
-                                    <td>{{ sale.status }}</td>
-                                    <td>
-                                        <!-- Edit Button -->
-                                        <a href="{% url 'product_edit' product.id %}" class="btn btn-warning btn-sm">Edit</a>
-                                    </td>
-                                </tr>
+                        </thead>
+                        <tbody>
+                            {% for sale in sales %}
+                            <tr>
+                                <td><a href="{% url 'sales:sales_detail' sale.id %}">{{ sale.sales_code }}</a></td>
+                                <td>{{ sale.customer.customer_hardware }}</td>
+                                <td>{{ sale.date|date:"Y-m-d H:i" }}</td>
+                                <td>{{ sale.total_amount }}</td>
+                                <td><span>{{ sale.status }}</span></td>
+                                <td>
+                                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#editStatusModal{{ sale.id }}">
+                                        Edit Status
+                                    </button>
+                                    {% if sale.status == 'Completed' and not sale.invoice %}
+                                    <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addInvoiceModal{{ sale.id }}">
+                                        Add Invoice Details
+                                    </button>
+                                    {% endif %}
+                                    <a href="{% url 'sales:create_sales_return' sale.id %}" class="btn btn-warning">Create Sales Return</a> <!-- Sales Return Button -->
+                                </td>
+                            </tr>
                             {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </p>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
-
         {% else %}
-        <h5 class="alert alert-primary ms-4 me-4"> No Sales Records </h5>
+        <h5 class="alert alert-primary ms-4 me-4">No Sales Records Found</h5>
         {% endif %}
     </div>
-</div> 
+</div>
+
+<!-- Modals for editing sales status -->
+{% for sale in sales %}
+<div class="modal fade" id="editStatusModal{{ sale.id }}" tabindex="-1" aria-labelledby="editStatusModalLabel{{ sale.id }}" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editStatusModalLabel{{ sale.id }}">Edit Status for {{ sale.sales_code }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form method="POST" action="{% url 'sales:change_sale_status' sale.id %}">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="status" class="form-label">Select New Status</label>
+                        <select name="status" id="status-{{ sale.id }}" class="form-select">
+                            <option value="Pending" {% if sale.status == "Pending" %}selected{% endif %}>Pending</option>
+                            <option value="Completed" {% if sale.status == "Completed" %}selected{% endif %}>Completed</option>
+                            <option value="Cancelled" {% if sale.status == "Cancelled" %}selected{% endif %}>Cancelled</option>
+                        </select>
+                    </div>
+
+                    <div class="mt-3">
+                        <label for="remarks" class="form-label">Remarks</label>
+                        <textarea name="remarks" id="remarks-{{ sale.id }}" class="form-control" rows="3" placeholder="Enter remarks..."></textarea>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary mt-3">Update Status</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Invoice Details Modal -->
+<div class="modal fade" id="addInvoiceModal{{ sale.id }}" tabindex="-1" aria-labelledby="addInvoiceModalLabel{{ sale.id }}" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addInvoiceModalLabel{{ sale.id }}">Add Invoice Details for {{ sale.sales_code }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form method="POST" action="{% url 'sales:add_invoice' sale.id %}">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="invoice_number" class="form-label">Invoice Number</label>
+                        <input type="text" name="invoice_number" class="form-control" placeholder="Enter Invoice Number" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="invoice_date" class="form-label">Invoice Date</label>
+                        <input type="date" name="invoice_date" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="shipment_date" class="form-label">Shipment Date</label>
+                        <input type="date" name="shipment_date" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="remarks" class="form-label">Remarks</label>
+                        <textarea name="remarks" class="form-control" rows="3" placeholder="Enter any remarks"></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-success">Save Invoice</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endfor %}
 
 {% endblock %}
-
-
-
-

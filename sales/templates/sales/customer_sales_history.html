@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block body %}
+<h3 class="m-4">Sales History for {{ customer.customer_hardware }}</h3>
+
+<div class="row">
+    <div class="col-12">
+        {% if sales %}
+        <div class="card bg-light ms-4 me-4 mb-4">
+            <div class="card-header">
+                <h5 class="card-title">Sales List</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th scope="col">Sales Code</th>
+                                <th scope="col">Date</th>
+                                <th scope="col">Total Amount</th>
+                                <th scope="col">Status</th>
+                                <th scope="col">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for sale in sales %}
+                            <tr>
+                                <td><a href="{% url 'sales:sales_detail' sale.id %}">{{ sale.sales_code }}</a></td>
+                                <td>{{ sale.date|date:"Y-m-d H:i" }}</td>
+                                <td>{{ sale.total_amount }}</td>
+                                <td>{{ sale.status }}</td>
+                                <td>
+                                    <a href="{% url 'sales:sales_detail' sale.id %}" class="btn btn-info btn-sm">View Details</a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <h5 class="alert alert-primary ms-4 me-4">No Sales Records Found</h5>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

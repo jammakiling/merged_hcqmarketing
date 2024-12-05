@@ -4,7 +4,7 @@ from .models import Customer
 class CustomerForm(forms.ModelForm):
     class Meta:
         model = Customer
-        fields = ['first_name','last_name','customer_hardware','email','address','contact_num','dateStart','startBy']
+        fields = ['first_name','last_name','customer_hardware','email','address','contact_num','dateStart','startBy','status']
 
         
         
@@ -17,7 +17,8 @@ class CustomerForm(forms.ModelForm):
             'address': 'Address',
             'contact_num': 'Contact Number',
             'dateStart': 'Date Started',
-            'startBy': 'Started By'
+            'startBy': 'Started By',
+            'status': 'Status',
         }   
         widgets = {
           #  'customer_number': forms.NumberInput(attrs={'class': 'form-control'}),
@@ -29,6 +30,7 @@ class CustomerForm(forms.ModelForm):
             'contact_num': forms.TextInput(attrs={'class': 'form-control'}),
             'dateStart': forms.DateInput(attrs={'class': 'form-control','type': 'date'}),
             'startBy': forms.Select(attrs={'class': 'form-control'}),
+             'status': forms.Select(attrs={'class': 'form-control'}),
         }   
 
     

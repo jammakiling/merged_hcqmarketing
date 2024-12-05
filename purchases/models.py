@@ -1,3 +1,4 @@
+from datetime import datetime
 from django.db import models
 from suppliers.models import Supplier
 from inventory.models import Inventory
@@ -71,16 +72,43 @@ class Invoice(models.Model):
         return f"Invoice {self.invoice_number} for {self.purchase.purchase_code}"
     
     # In models.py
-
 class PurchaseReturn(models.Model):
     purchase = models.ForeignKey(Purchase, on_delete=models.CASCADE)
     return_date = models.DateField(auto_now_add=True)
+    return_code = models.CharField(max_length=20)  # Add return_code field to ensure uniqueness
 
+    def save(self, *args, **kwargs):
+        if not self.return_code:  # Only generate return_code if it's not already set
+            today = datetime.now().strftime("%Y%m%d")
+            latest_return = PurchaseReturn.objects.filter(return_code__startswith=f"PR-{today}").order_by("id").last()
+            next_number = 1 if not latest_return else int(latest_return.return_code.split('-')[-1]) + 1
+            self.return_code = f"PR-{today}-{next_number:03d}"
+        super().save(*args, **kwargs)  # Save the model after generating the return_code
+
+    def __str__(self):
+        return f"Return {self.return_code} for Purchase {self.purchase.id}"
+
+from django.core.exceptions import ValidationError
 class PurchaseReturnItem(models.Model):
     purchase_return = models.ForeignKey(PurchaseReturn, on_delete=models.CASCADE, related_name="items")
     item = models.ForeignKey(PurchaseItem, on_delete=models.CASCADE, null=True, blank=False)
     returned_quantity = models.PositiveIntegerField()
 
     def clean(self):
-        if self.returned_quantity > self.item.quantity_delivered:
-            raise ValidationError("Return quantity cannot exceed the delivered quantity.")
+        # Ensure the item is selected
+        if not self.item:
+            raise ValidationError("An item must be selected for the purchase return.")
+
+        # Handle NoneType for delivered_quantity by defaulting to 0
+        delivered_quantity = self.item.delivered_quantity or 0
+
+        # Ensure returned_quantity does not exceed delivered_quantity
+        if self.returned_quantity > delivered_quantity:
+            raise ValidationError(
+                f"Returned quantity ({self.returned_quantity}) cannot exceed delivered quantity ({delivered_quantity})."
+            )
+
+    def save(self, *args, **kwargs):
+        # Run the clean method before saving
+        self.full_clean()
+        super().save(*args, **kwargs)

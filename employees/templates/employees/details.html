@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block body %}
+<h3 class="m-4">Employees Information</h3>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card bg-light ms-4 me-4 mb-4">
+            <div class="card-header">
+                <h5 class="card-title">Employee Details</h5>
+            </div>
+            <div class="card-body">
+                <!-- Display employee details -->
+                <p><strong>Name:</strong> {{ employee.full_name }}</p>
+                <p><strong>Address:</strong> {{ employee.address }}</p>
+                <p><strong>Phone:</strong> {{ employee.phone }}</p>
+                <p><strong>Email:</strong> {{ employee.email }}</p>
+                
+                <p><strong>Position:</strong> {{ employee.job_title }}</p>
+                <p><strong>Hire Date:</strong> {{ employee.dateStart }}</p>
+                
+                <p><strong>Status:</strong> {{ employee.status }}</p>
+
+                <!-- Additional fields -->
+                
+                {% if employee.date_of_birth %}
+                    <p><strong>Date of Birth:</strong> {{ employee.date_of_birth }}</p>
+                {% endif %}
+                {% if employee.emergency_name %}
+                    <p><strong>Emergency Name:</strong> {{ employee.emergency_name }}</p>
+                {% endif %}
+                {% if employee.emergency_contact %}
+                    <p><strong>Emergency Contact:</strong> {{ employee.emergency_contact }}</p>
+                {% endif %}
+                
+            </div>
+            <div class="card-footer text-center">
+                <!-- Button to navigate back to the employees list -->
+                <a href="{% url 'employees_index' %}" class="btn btn-cancel">Back to Employees List</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

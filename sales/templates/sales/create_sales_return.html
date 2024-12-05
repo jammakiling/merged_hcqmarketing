@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block body %}
+<h3 class="m-4">Create Sales Return for {{ sale.sales_code }}</h3>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card bg-light ms-4 me-4 mb-4">
+            <div class="card-header">
+                <h5 class="card-title">Sales Return Details</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    {% csrf_token %}
+
+                    <!-- Display form errors if any -->
+                    {% if form.errors %}
+                        <ul>
+                            {% for field, errors in form.errors.items %}
+                                <li><strong>{{ field }}:</strong>
+                                    {% for error in errors %}
+                                        <p>{{ error }}</p>
+                                    {% endfor %}
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    {% endif %}
+
+                    <!-- Return Code (Auto-generated) -->
+                    <div class="mb-3">
+                        <label for="return_code" class="form-label">Return Code</label>
+                        <input type="text" class="form-control" id="return_code" name="return_code" value="SAR{{ return_code }}" readonly>
+                    </div>
+
+                    <!-- Quantity Returned -->
+                    <div class="mb-3">
+                        <label for="quantity" class="form-label">Quantity Returned</label>
+                        <input type="number" class="form-control" id="quantity" name="quantity" required min="1">
+                    </div>
+
+                    <!-- Return Date -->
+                    <div class="mb-3">
+                        <label for="date" class="form-label">Return Date</label>
+                        <input type="date" class="form-control" id="date" name="date" required>
+                    </div>
+
+                    <!-- Submit Button -->
+                    <div class="mb-3 text-center">
+                        <button type="submit" class="btn btn-primary">Submit Return</button>
+                        <a href="{% url 'sales:sales_list' %}" class="btn btn-secondary">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

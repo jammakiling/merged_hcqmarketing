@@ -33,8 +33,10 @@
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" data-bs-toggle="dropdown" href="#" role="button" aria-haspopup="true" aria-expanded="false">Sales</a>
                         <div class="dropdown-menu">
-                            <a class="dropdown-item" href="{% url 'sales_index' %}">Sales</a>
-                            <a class="dropdown-item" href="{% url 'new_sales_order_add' %}">Add Sale</a>
+                            <a class="dropdown-item" href="{% url 'sales:sales_list' %}">Sales</a>
+                            <a class="dropdown-item" href="{% url 'sales:invoice_list' %}">Sales Invoice</a>
+                            <a class="dropdown-item" href="{% url 'sales:create_sale' %}">New Sales</a>
+                            <a class="dropdown-item" href="{% url 'sales:sales_return_list' %}">Sales Return</a>
                             
                         </div>
                     </li>

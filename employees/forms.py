@@ -4,19 +4,27 @@ from .models import Employees
 class EmployeeForm(forms.ModelForm):
     class Meta:
         model = Employees
-        fields = ['first_name', 'middle_name','last_name', 'job_title'] 
+        fields = ['full_name', 'address', 'phone', 'email', 'job_title', 'dateStart', 'status', 'emergency_name', 'emergency_contact']
         labels = {
-           # 'employee_id': 'Employee ID',
-            'first_name': 'First Name',
-            'middle_name': 'Middle Name',
-            'last_name': 'Last Name',
-            'job_title': 'Job Title',  
-        }   
-        widgets = {
-            'first_name': forms.TextInput(attrs={'class': 'form-control'}),
-            'middle_name': forms.TextInput(attrs={'class': 'form-control'}),
-            'last_name': forms.TextInput(attrs={'class': 'form-control'}),
-            'job_title': forms.Select(attrs={'class': 'form-control'}),
-        
+            'full_name': 'Full Name',
+            'address': 'Address',  
+            'phone': 'Phone',
+            'email': 'Email',
+            'job_title': 'Job Title',
+            'dateStart': 'Date Started',
+            'status': 'Status',
+            'emergency_name': 'Emergency Contact Name',  
+            'emergency_contact': 'Emergency Contact Number',
+        }
 
+        widgets = {
+            'full_name': forms.TextInput(attrs={'placeholder': 'Full Name', 'class': 'form-control'}),
+            'address': forms.TextInput(attrs={'class': 'form-control'}),
+            'phone': forms.TextInput(attrs={'class': 'form-control'}),
+            'email': forms.EmailInput(attrs={'placeholder': 'Leave blank if none', 'class': 'form-control'}),
+            'job_title': forms.Select(attrs={'class': 'form-control'}),
+            'dateStart': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'status': forms.Select(attrs={'class': 'form-control'}),
+            'emergency_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'emergency_contact': forms.TextInput(attrs={'class': 'form-control'}),
         }

@@ -1,101 +1,160 @@
 {% extends "base.html" %}
 
 {% block body %}
-<h3 class="m-4">Create Purchase Return</h3>
-<div class="container">
-    {% if success %}
-        <div class="alert alert-success">
-            Purchase return created successfully!
-        </div>
-    {% endif %}
-    
-    <!-- Display form errors if any -->
-    {% if purchase_return_form.errors %}
-        <div class="alert alert-danger">
-            <ul>
-                {% for field in purchase_return_form %}
-                    {% for error in field.errors %}
-                        <li>{{ error }}</li>
-                    {% endfor %}
-                {% endfor %}
-            </ul>
-        </div>
-    {% endif %}
-    
-    <form method="post">
-        {% csrf_token %}
-        
-        <!-- Render the purchase return form fields -->
-        <div class="mb-3">
-            {{ purchase_return_form.as_p }}
-        </div>
+<h3 class="m-4"> Return a Purchase</h3>
 
-        <h5>Item Returns</h5>
-        <table class="table table-bordered">
-            <thead>
-                <tr>
-                    <th>Item</th>
-                    <th>Return Quantity</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                {{ formset.management_form }}
-                {% for form in formset %}
-                    <tr>
-                        <td>
-                            <div class="form-group">
-                                {{ form.item }}
-                            </div>
-                        </td>
-                        <td>
-                            <div class="form-group">
-                                {{ form.return_quantity }}
-                                <small class="text-danger">Maximum: {{ form.item.quantity_delivered }}</small>
-                            </div>
-                        </td>
-                        <td>
-                            <button type="button" class="btn btn-danger delete-row">Remove</button>
-                        </td>
-                    </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+<div class="row">
+    <div class="col-12">
+        <div class="card bg-light ms-4 me-4 mb-4">
+            <div class="card-header">
+                <h5 class="card-title">Purchase Return Details</h5>
+            </div>
+            <div class="card-body">
+                {% if success %}
+                    <div class="alert alert-success">
+                        Purchase return created successfully!
+                    </div>
+                {% endif %}
 
-        <button type="submit" class="btn btn-primary">Save</button>
-    </form>
+                <!-- Display form errors if any -->
+                {% if purchase_return_form.errors %}
+                    <ul style="color: red;">
+                        {% for field, errors in purchase_return_form.errors.items %}
+                            <li><strong>{{ field }}:</strong>
+                                {% for error in errors %}
+                                    <p>{{ error }}</p>
+                                {% endfor %}
+                            </li>
+                        {% endfor %}
+                    </ul>
+                {% endif %}
+
+                <form method="post">
+                    {% csrf_token %}
+
+                    <!-- Purchase Dropdown -->
+                    <div class="mb-3">
+                        <label for="id_purchase" class="form-label">Select Purchase</label>
+                        <select name="purchase" id="id_purchase" class="form-select" required>
+                            <option value="" selected disabled>Select Purchase</option>
+                            {% for purchase in purchases %}
+                                <option value="{{ purchase.id }}">{{ purchase.purchase_code }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Item Returns Table -->
+                    <h5 class="card-title">Returned Items</h5>
+                    <table class="table table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Item</th>
+                                <th>Return Quantity</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="return-items">
+                            {{ formset.management_form }}
+                            {% for form in formset %}
+                                <tr>
+                                    <td>
+                                        <select name="{{ form.prefix }}-item" class="form-select" required>
+                                            <option value="" selected disabled>Select Item</option>
+                                            {% for item in items %}
+                                                <option value="{{ item.id }}" {% if form.item.value == item.id %}selected{% endif %}>
+                                                    {{ item.name }} (Delivered: {{ item.delivered_quantity }})
+                                                </option>
+                                            {% endfor %}
+                                        </select>
+                                    </td>
+                                    <td>
+                                        <input type="number" name="{{ form.prefix }}-returned_quantity" 
+                                               class="form-control" 
+                                               max="{{ form.item.delivered_quantity }}" 
+                                               value="{{ form.returned_quantity.value }}" required>
+                                    </td>
+                                    <td>
+                                        <button type="button" class="btn btn-danger delete-row">Remove</button>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+
+                    <!-- Add More Items Button -->
+                    <button type="button" id="add-more" class="btn btn-primary mb-3">Add More Items</button>
+
+                    <!-- Submit Button -->
+                    <div class="text-center">
+                        <button type="submit" class="btn btn-success">Save Purchase Return</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 </div>
 
 <script>
-    // Dynamically update items based on the selected purchase
-    document.querySelector('[name="purchase"]').addEventListener('change', function () {
+    document.querySelector('#id_purchase').addEventListener('change', function () {
         const purchaseId = this.value;
-        
-        // Fetch the items of the selected purchase
-        fetch(`/purchases/get_items_for_purchase/${purchaseId}/`)  // Adjust this endpoint to match your URL
+
+        // Fetch delivered items for the selected purchase
+        fetch(`/purchases/get_items_for_purchase/${purchaseId}/`)
             .then(response => response.json())
             .then(data => {
-                // Update each item selection with the items of the selected purchase
-                document.querySelectorAll('[name^="form-"][name$="-item"]').forEach((select, index) => {
-                    select.innerHTML = ''; // Clear the existing options
-
-                    // Populate the item dropdown based on the selected purchase's items
+                // Update all existing item dropdowns
+                document.querySelectorAll('[name$="-item"]').forEach(select => {
+                    select.innerHTML = '<option value="" selected disabled>Select Item</option>';
                     data.items.forEach(item => {
-                        const option = new Option(`${item.name} (Delivered: ${item.quantity_delivered})`, item.id);
+                        const option = new Option(`${item.name} (Delivered: ${item.delivered_quantity})`, item.id);
                         select.appendChild(option);
                     });
-
-                    // Set the maximum return quantity for each item
-                    const itemId = select.value; // Current selected item ID
-                    const selectedItem = data.items.find(item => item.id == itemId);
-                    if (selectedItem) {
-                        const returnQuantityInput = select.closest('tr').querySelector('[name^="form-"][name$="-return_quantity"]');
-                        returnQuantityInput.max = selectedItem.quantity_delivered; // Set max return quantity
-                        returnQuantityInput.value = Math.min(returnQuantityInput.value || 0, selectedItem.quantity_delivered); // Ensure quantity does not exceed max
-                    }
                 });
             });
     });
+
+    // Add new row for return items
+    document.getElementById('add-more').addEventListener('click', function () {
+        const newIndex = document.querySelectorAll('[name$="-item"]').length;
+        const newRow = `
+            <tr>
+                <td>
+                    <select name="form-${newIndex}-item" class="form-select" required>
+                        <option value="" selected disabled>Select Item</option>
+                    </select>
+                </td>
+                <td>
+                    <input type="number" name="form-${newIndex}-returned_quantity" class="form-control" required>
+                </td>
+                <td>
+                    <button type="button" class="btn btn-danger delete-row">Remove</button>
+                </td>
+            </tr>
+        `;
+        document.querySelector('#return-items').insertAdjacentHTML('beforeend', newRow);
+
+        // Fetch and populate items for the selected purchase
+        const purchaseId = document.querySelector('#id_purchase').value;
+        if (purchaseId) {
+            fetch(`/purchases/get_items_for_purchase/${purchaseId}/`)
+                .then(response => response.json())
+                .then(data => {
+                    const select = document.querySelector(`[name="form-${newIndex}-item"]`);
+                    data.items.forEach(item => {
+                        const option = new Option(`${item.name} (Delivered: ${item.delivered_quantity})`, item.id);
+                        select.appendChild(option);
+                    });
+                });
+        }
+    });
+
+    // Delete row functionality
+    document.addEventListener('click', function (event) {
+        if (event.target.classList.contains('delete-row')) {
+            event.target.closest('tr').remove();
+        }
+    });
 </script>
+
 
 {% endblock %}

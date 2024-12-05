@@ -1,35 +1,63 @@
 from django import forms
-from django.forms import inlineformset_factory
-from .models import Sale, SaleItem
-class SalesForm(forms.ModelForm):
-   
-    class Meta:
-        model = Sale
-        fields = ['customer_name', 'total_cost','status', ] 
-        labels = {
-      
-            'customer_name': 'Customer Name',
-            'total_cost': 'Total',
-            'status': 'Status',
-            
-        }   
-        widgets = {
-            'customer_name': forms.Select(attrs={'class': 'form-control'}),
-            'total_cost': forms.TextInput(attrs={'class': 'form-control'}),
-            'status': forms.Select(attrs={'class': 'form-control'}),
+from .models import Sales, SalesItem, SalesReturn
+from inventory.models import Product
+from django.forms import modelformset_factory
+from customers.models import Customer
 
+# Sales Form for main sale details
+class SalesForm(forms.ModelForm):
+    class Meta:
+        model = Sales
+        fields = ['customer', 'status', 'payment_stat']
+
+        labels = {
+            'customer': 'Customer Name',
+            'status': 'Sale Status',
+            'payment_stat': 'Payment Status',
         }
 
-# Define the inline formset for SaleItem
-SaleItemFormSet = inlineformset_factory(
-    Sale,
-    SaleItem,
-    fields=['product', 'quantity', 'price_per_unit'],
-    extra=1,  # Allows for an additional empty form in the set
-    can_delete=True,  # Allows items to be removed
-    widgets={
-        'product': forms.Select(attrs={'class': 'form-control'}),
-        'quantity': forms.NumberInput(attrs={'class': 'form-control'}),
-        'price_per_unit': forms.TextInput(attrs={'class': 'form-control'}),
-    }
+        widgets = {
+            'customer': forms.Select(attrs={'class': 'form-control'}),
+            'status': forms.Select(attrs={'class': 'form-control'}),
+            'payment_stat': forms.Select(attrs={'class': 'form-control'}),
+        }
+
+class SalesItemForm(forms.ModelForm):
+    class Meta:
+        model = SalesItem
+        fields = ['product', 'quantity', 'price_per_item']
+        widgets = {
+            'product': forms.Select(attrs={'class': 'form-control'}),
+            'quantity': forms.NumberInput(attrs={'class': 'form-control', 'min': 1}),
+            'price_per_item': forms.NumberInput(attrs={'class': 'form-control', 'readonly': 'readonly'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super(SalesItemForm, self).__init__(*args, **kwargs)
+        self.fields['product'].queryset = Product.objects.all()
+        self.fields['price_per_item'].required = False
+
+    def clean_price_per_item(self):
+        price = self.cleaned_data.get('price_per_item')
+        product = self.cleaned_data.get('product')
+
+        if price and product and price != product.product_price:
+            raise forms.ValidationError(f"Price must be {product.product_price} for this product.")
+        
+        return price
+
+class SalesReturnForm(forms.ModelForm):
+    class Meta:
+        model = SalesReturn
+        fields = ['return_code', 'quantity', 'date']
+
+# Formset for managing multiple SalesItems dynamically
+SalesItemFormSet = modelformset_factory(
+    SalesItem,
+    form=SalesItemForm,
+    extra=1,
+    can_delete=True
 )
+
+class WalkInCustomerForm(forms.Form):
+    customer_name = forms.CharField(max_length=100, required=True, label="Customer Name")

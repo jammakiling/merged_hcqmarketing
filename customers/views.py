@@ -4,11 +4,26 @@ from django.urls import reverse
 from .models import Customer
 from .forms import CustomerForm
 from django.contrib import messages
-
+from django.db.models import Q
 
 def index(request):
+    search_query = request.GET.get('search', '')
+    if search_query:
+        customers = Customer.objects.filter(
+            Q(id__icontains=search_query) |
+            Q(first_name__icontains=search_query) |
+            Q(last_name__icontains=search_query) |
+            Q(customer_hardware__icontains=search_query)
+        ).order_by('id')
+        results_count = customers.count()
+        messages.info(request, f"{results_count} result(s) found for '{search_query}'.")
+    else:
+        customers = Customer.objects.all().order_by('id')
+        results_count = 0
+
     return render(request, 'customers/index.html', {
-        'customers': Customer.objects.all().order_by('id')
+        'customers': customers,
+        'results_count': results_count 
     })
 
 def view_customer(request, id):

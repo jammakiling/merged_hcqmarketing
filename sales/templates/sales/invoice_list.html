@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block body %}
+<h3 class="m-4">Sales Invoices</h3>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card bg-light ms-4 me-4 mb-4">
+            <div class="card-header">
+                <h5 class="card-title">Invoice List</h5>
+            </div>
+            <div class="card-body">
+                <table class="table table-bordered">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Invoice Number</th>
+                            <th>Sale Code</th>
+                            <th>Invoice Date</th>
+                            <th>Shipment Date</th>
+                            <th>Remarks</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for invoice in invoices %}
+                        <tr>
+                            <td>{{ forloop.counter }}</td>
+                            <td>{{ invoice.invoice_number }}</td>
+                            <td>{{ invoice.sale.sales_code }}</td>
+                            <td>{{ invoice.invoice_date }}</td>
+                            <td>{{ invoice.shipment_date }}</td>
+                            <td>{{ invoice.remarks|default:"N/A" }}</td>
+                            <td>
+                                <a href="{% url 'sales:invoice_list' %}" class="btn btn-info btn-sm">View</a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="text-center">No invoices found.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

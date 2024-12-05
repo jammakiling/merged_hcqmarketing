@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+{% block content %}
+  <h2>Edit Sale</h2>
+
+  <form method="POST">
+    {% csrf_token %}
+    {{ sale_form.as_p }}
+    
+    <h3>Sale Items</h3>
+    {{ formset.management_form }}
+    {% for form in formset %}
+      <div class="form-row">
+        {{ form.as_p }}
+      </div>
+    {% endfor %}
+    
+    <button type="submit">Save Sale</button>
+  </form>
+  
+  <a href="{% url 'sales:sales_detail' sale.id %}">Back to Sale Details</a>
+{% endblock %}

@@ -9,6 +9,13 @@ class Customer(models.Model):
        
     ]   
 
+    Customer_Status = [
+        ('Active', 'Active'),
+        ('Inactive', 'Inactive'),
+        
+    ]
+
+
     # customer_number = models.PositiveIntegerField()
     first_name = models.CharField(max_length=50)
     last_name = models.CharField(max_length=50)
@@ -19,5 +26,7 @@ class Customer(models.Model):
     dateStart = models.DateField("Date Started") 
     startBy = models.CharField(max_length=10, choices=CUSTOMER_START_BY)  # figure this out 
     dateEdit = models.DateTimeField(default=timezone.now)
+    status = models.CharField(max_length=20, choices=Customer_Status, default='Active')
+
     def __str__(self):
         return f"'Customer: {self.customer_hardware}"

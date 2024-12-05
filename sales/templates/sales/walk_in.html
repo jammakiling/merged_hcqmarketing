@@ -1,0 +1,191 @@
+{% extends "base.html" %}
+
+{% block body %}
+<h3 class="m-4">Walk-In Sales</h3>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card bg-light ms-4 me-4 mb-4">
+            <div class="card-header">
+                <h5 class="card-title">Sales Details</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    {% csrf_token %}
+
+                    <!-- Display form errors if any -->
+                    {% if sale_form.errors %}
+                        <ul>
+                            {% for field, errors in sale_form.errors.items %}
+                                <li><strong>{{ field }}:</strong>
+                                    {% for error in errors %}
+                                        <p>{{ error }}</p>
+                                    {% endfor %}
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    {% endif %}
+
+                    <!-- Walk-In Customer Name (Editable) -->
+                    <div class="mb-3">
+                        <label for="id_customer_name" class="form-label">Customer Name</label>
+                        <input type="text" name="customer_name" id="id_customer_name" class="form-control" required>
+                    </div>
+
+                    <!-- Render the customer field from SalesForm -->
+                    <div class="mb-3">
+                        <label for="{{ sale_form.customer.id_for_label }}" class="form-label">{{ sale_form.customer.label }}</label>
+                        {{ sale_form.customer }}
+                    </div>
+
+                    <!-- Date Input -->
+                    <div class="mb-3">
+                        <label for="id_date" class="form-label">Date</label>
+                        <input type="datetime-local" name="date" id="id_date" class="form-control" required>
+                    </div>
+
+                    <!-- Status Dropdown -->
+                    <div class="mb-3">
+                        <label for="{{ sale_form.status.id_for_label }}" class="form-label">{{ sale_form.status.label }}</label>
+                        {{ sale_form.status }}
+                    </div>
+
+                    <!-- Payment Status Dropdown -->
+                    <div class="mb-3">
+                        <label for="{{ sale_form.payment_stat.id_for_label }}" class="form-label">Payment Status</label>
+                        {{ sale_form.payment_stat }}
+                    </div>
+
+                    <!-- Purchase Items Container -->
+                    <div id="purchase-items" class="mb-3">
+                        <h5 class="card-title">Products</h5>
+
+                        <!-- Hidden Input for Django Formset Management -->
+                        <input type="hidden" name="form-TOTAL_FORMS" id="id_form-TOTAL_FORMS" value="1">
+                        <input type="hidden" name="form-INITIAL_FORMS" value="0">
+                        <input type="hidden" name="form-MIN_NUM_FORMS" value="0">
+                        <input type="hidden" name="form-MAX_NUM_FORMS" value="1000">
+
+                        <div class="purchase-item mb-3" id="item-0">
+                            <div class="row">
+                                <!-- Inventory Item Dropdown -->
+                                <div class="col-md-4">
+                                    <label for="id_form-0-product" class="form-label">Product</label>
+                                    <select name="form-0-product" id="id_form-0-product" class="form-select product-select" required>
+                                        <option value="" selected disabled>Select Product</option>
+                                        {% for product in products %}
+                                            <option value="{{ product.id }}" data-price="{{ product.product_price }}">
+                                                {{ product.product_name }}
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+
+                                <!-- Quantity Input -->
+                                <div class="col-md-4">
+                                    <label for="id_form-0-quantity" class="form-label">Quantity</label>
+                                    <input type="number" name="form-0-quantity" id="id_form-0-quantity" class="form-control quantity-input" required min="1">
+                                </div>
+
+                                <!-- Price Input (Auto-filled with purchase price from product) -->
+                                <div class="col-md-3">
+                                    <label for="id_form-0-price" class="form-label">Price</label>
+                                    <input type="number" name="form-0-price" id="id_form-0-price" class="form-control price-input" readonly>
+                                </div>
+
+                                <!-- Delete Button -->
+                                <div class="col-md-1 d-flex align-items-end">
+                                    <button type="button" class="btn btn-danger btn-sm delete-row">X</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Add More Products Button -->
+                    <button type="button" id="add-more" class="btn btn-primary mb-3">Add More Products</button>
+
+                    <!-- Total Price Calculation -->
+                    <div class="mb-3">
+                        <label for="id_total_price" class="form-label">Total Price</label>
+                        <input type="number" id="id_total_price" class="form-control" readonly>
+                    </div>
+
+                    <!-- Submit Button -->
+                    <div class="mb-3 text-center">
+                        <button type="submit" class="btn btn-primary">Save Sales</button>
+                        <a href="{% url 'sales:sales_list' %}" class="btn btn-secondary">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Function to update price based on product selection
+    function updatePrice(productSelect, priceInput) {
+        var selectedOption = productSelect.options[productSelect.selectedIndex];
+        var price = selectedOption ? selectedOption.getAttribute('data-price') : 0;
+        priceInput.value = price;
+        calculateTotalPrice();
+    }
+
+    // Function to calculate total price
+    function calculateTotalPrice() {
+        var totalPrice = 0;
+        var items = document.querySelectorAll('.purchase-item');
+        items.forEach(function(item) {
+            var quantityInput = item.querySelector('.quantity-input');
+            var priceInput = item.querySelector('.price-input');
+            var quantity = parseInt(quantityInput.value) || 0;
+            var price = parseFloat(priceInput.value) || 0;
+            totalPrice += quantity * price;
+        });
+        document.getElementById('id_total_price').value = totalPrice.toFixed(2);
+    }
+
+    // Event listeners for product selection and quantity change
+    document.addEventListener('DOMContentLoaded', function() {
+        var productSelects = document.querySelectorAll('.product-select');
+        var quantityInputs = document.querySelectorAll('.quantity-input');
+
+        productSelects.forEach(function(select) {
+            select.addEventListener('change', function() {
+                var priceInput = select.closest('.purchase-item').querySelector('.price-input');
+                updatePrice(select, priceInput);
+            });
+        });
+
+        quantityInputs.forEach(function(input) {
+            input.addEventListener('input', function() {
+                calculateTotalPrice();
+            });
+        });
+
+        // Initialize prices for any pre-filled products
+        productSelects.forEach(function(select) {
+            updatePrice(select, select.closest('.purchase-item').querySelector('.price-input'));
+        });
+    });
+
+    // Function to handle "Add More Products" button
+    document.getElementById('add-more').addEventListener('click', function() {
+        var newItem = document.querySelector('.purchase-item').cloneNode(true);
+        var totalForms = document.getElementById('id_form-TOTAL_FORMS');
+        var formCount = parseInt(totalForms.value);
+
+        newItem.querySelector('.product-select').id = 'id_form-' + formCount + '-product';
+        newItem.querySelector('.quantity-input').id = 'id_form-' + formCount + '-quantity';
+        newItem.querySelector('.price-input').id = 'id_form-' + formCount + '-price';
+        newItem.querySelector('.delete-row').addEventListener('click', function() {
+            newItem.remove();
+            calculateTotalPrice();
+        });
+
+        // Increment form count
+        totalForms.value = formCount + 1;
+        document.getElementById('purchase-items').appendChild(newItem);
+    });
+</script>
+
+{% endblock %}

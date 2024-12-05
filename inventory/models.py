@@ -7,6 +7,13 @@ class Inventory(models.Model):
 
     def __str__(self):
         return f"Inventory for {self.product.product_name}"
+    
+    def save(self, *args, **kwargs):
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.debug(f"Before save: Inventory {self.id} stock = {self.inventory_stock}")
+        super().save(*args, **kwargs)
+        logger.debug(f"After save: Inventory {self.id} stock = {self.inventory_stock}")
 
 class SerializedInventory(models.Model):
     inventory = models.ForeignKey(Inventory, on_delete=models.CASCADE, related_name='serialized_items')
@@ -26,3 +33,4 @@ class StockHistory(models.Model):
 
     def __str__(self):
         return f"{self.inventory.product.product_name} - {self.status} ({self.delivered_quantity})"
+

@@ -5,11 +5,30 @@ from .forms import EmployeeForm
 from django.shortcuts import HttpResponseRedirect
 from django.urls import reverse
 from django.contrib import messages
+from django.db.models import Q
 
 def employee_index(request):
+    search_query = request.GET.get('search', '')
+    if search_query:
+        employees = Employees.objects.filter(
+            Q(id__icontains=search_query) | Q(full_name__icontains=search_query)
+        ).order_by('id')
+        results_count = employees.count()
+        messages.info(request, f"{results_count} result(s) found for '{search_query}'.")
+    else:
+        employees = Employees.objects.all().order_by('id')
+        results_count = 0 
+
     return render(request, 'employees/index.html', {
-        'employees': Employees.objects.all().order_by('id')
+        'employees': employees,
+        'results_count': results_count 
     })
+
+def employees_detail(request, pk):
+    # Ensure you're correctly fetching the employee
+    employee = get_object_or_404(Employees, pk=pk)
+
+    return render(request, 'employees/details.html', {'employee': employee})
 
 # View for adding a new employee
 def add(request):
@@ -25,6 +44,7 @@ def add(request):
         form = EmployeeForm()
 
     return render(request, 'employees/add.html', {'form': form})
+    
 
 def delete(request, id):
     employees = get_object_or_404(Employees, id=id)
@@ -35,4 +55,4 @@ def delete(request, id):
         employees.delete()
         return HttpResponseRedirect(reverse('employees_index'))
 
-    return redirect('employees_index') 
+    return redirect('employees_index')

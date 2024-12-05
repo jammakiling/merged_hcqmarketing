@@ -3,19 +3,41 @@
 {% block body %}
 
 {% if messages %}
-<div class="alert alert-success">
-    {% for message in messages %}
-        {{ message }}
-    {% endfor %}
+<div class="d-flex justify-content-center mt-3">
+    <div class="alert alert-success alert-dismissible fade show text-center" style="max-width: 600px; width: 100%;" role="alert">
+        {% for message in messages %}
+            {{ message }}
+        {% endfor %}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
 </div>
 {% endif %}
 
-<h3 class = "m-4">Suppliers</h3>
+<div class="d-flex justify-content-between align-items-center m-3">
+    <div class="d-flex align-items-center">
+        <h3 class="m-3">Suppliers</h3>
+        <a href="{% url 'add_supplier' %}" class="btn btn-add btn-sm ms-2">Add Suppliers</a>
+    </div>
+        {% if message %}
+    <div class="alert alert-info">
+        {{ message }}
+    </div>
+        {% endif %}
+    <form method="get" action="" class="d-flex ms-auto" style="width: 500px;">
+        <div class="input-group">
+            <input type="text" class="form-control" placeholder="Search Suppliers (ID/Name/Hardware)..." name="search" style="border-radius: 30px 0 0 30px;">
+            <button class="btn btn-search" type="submit" style="border-radius: 0 30px 30px 0;">Search</button>
+        </div>
+    </form>
+</div>
+
 <div class = "row">
     <div class = "col-12">
         {% if suppliers %}
         <div class="card bg-light ms-4 me-4 mb-4">
-            <div class="card-header"></div>
+            <div class="card-header">
+                <h5 class="card-title">Supplier Records</h5>
+            </div>
             <div class="card-body">
                 <p class="card-text">
                     <div class ="table-responsive">
@@ -31,7 +53,8 @@
                                 <th scope="col">Contact</th>
                                 <th scope="col">Date Started</th>
                                 <th scope="col">Date Edited</th>
-                                
+                                <th scope="col">Status</th>
+                                <th scope="col">Actions</th>                                
                             </tr>
                             </thead>
                             <tbody>
@@ -46,17 +69,18 @@
                                         <td>{{ supplier.contact_num}}</td>
                                         <td>{{ supplier.dateStart}}</td>
                                         <td>{{ supplier.dateEdit}}</td>
+                                        <td>{{ supplier.status}}</td>
                                         <td> 
                                             <form action="{% url 'supplier_edit' supplier.id %}" method="post" style="display:inline;"> 
                                                 {% csrf_token %}
-                                                <button type="submit" class="btn btn-danger btn-sm">Edit</button>
+                                                <button type="submit" class="btn btn-edit btn-sm">Edit</button>
                                             </form>
                                             
                                         </td>
                                         <td> 
                                             <form action="{% url 'delete_supplier' supplier.id %}" method="post" style="display:inline;"> 
                                                 {% csrf_token %}
-                                                <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                                                <button type="submit" class="btn btn-delete btn-sm">Delete</button>
                                             </form>
                                             
                                         </td>

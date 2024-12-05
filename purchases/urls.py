@@ -11,4 +11,5 @@ urlpatterns = [
     path('<int:purchase_id>/add_invoice/', views.add_invoice, name='add_invoice'),
     path('returns/', views.purchase_return_list, name='purchase_return_list'),
     path('returns/create/', views.create_purchase_return, name='create_purchase_return'),
+    path('purchases/get_items_for_purchase/<int:purchase_id>/', views.get_items_for_purchase, name='get_items_for_purchase'),
 ]

@@ -30,18 +30,16 @@
                             </tr>
                         </thead>
                         <tbody>
-                            {% for return_item in returns %}
+                            {% for purchase_return in returns %}
+                                {% for return_item in purchase_return.items.all %}
                                 <tr>
-                                    <td>{{ return_item.return_code }}</td>
-                                    <td>{{ return_item.purchase.purchase_code }}</td>
-                                    <td>{{ return_item.purchase_item.inventory.product.product_name }}</td>
-                                    <td>{{ return_item.quantity }}</td>
-                                    <td>{{ return_item.date|date:"Y-m-d" }}</td>
-                                    <td>
-                                        <!-- Edit Button -->
-                                        <a href="{% url 'purchase_return_edit' return_item.id %}" class="btn btn-warning btn-sm">Edit</a>
-                                    </td>
+                                    <td>{{ purchase_return.id }}</td> <!-- Or a meaningful unique identifier -->
+                                    <td>{{ purchase_return.purchase.purchase_code }}</td>
+                                    <td>{{ return_item.item.inventory.product.product_name }}</td>
+                                    <td>{{ return_item.returned_quantity }}</td>
+                                    <td>{{ purchase_return.return_date|date:"Y-m-d" }}</td>
                                 </tr>
+                                {% endfor %}
                             {% endfor %}
                         </tbody>
                     </table>

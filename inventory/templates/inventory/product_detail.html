@@ -10,7 +10,13 @@
         <p><strong>Description:</strong> {{ inventory.product.product_descript }}</p>
         <p><strong>Price:</strong> {{ inventory.product.product_price }}</p>
         <p><strong>Purchase Price:</strong> {{ inventory.product.purchase_price }}</p>
-        <p><strong>Stock:</strong> {{ inventory.inventory_stock }} {{ inventory.product.product_unit }}</p>
+        <p><strong>Stock:</strong> 
+            {% if inventory.serialized_items.exists %}
+                {{ inventory.serialized_items.count }} {{ inventory.product.product_unit }}
+            {% else %}
+                {{ inventory.inventory_stock }} {{ inventory.product.product_unit }}
+            {% endif %}
+        </p>
     </div>
 </div>
 

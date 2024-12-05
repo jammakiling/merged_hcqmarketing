@@ -17,47 +17,6 @@ from .forms import PurchaseReturnForm, PurchaseReturnItemForm
 from .models import PurchaseReturn, PurchaseReturnItem
 from .forms import PurchaseReturnForm, PurchaseReturnItemFormSet
 
-def purchase_return_list(request):
-    returns = PurchaseReturn.objects.all().order_by('-return_date')
-    return render(request, 'purchases/purchase_return.html', {'returns': returns})
-
-
-def create_purchase_return(request):
-    PurchaseReturnItemFormSet = modelformset_factory(
-        PurchaseReturnItem,
-        form=PurchaseReturnItemForm,
-        extra=1,
-        can_delete=True,
-    )
-
-    if request.method == "POST":
-        purchase_return_form = PurchaseReturnForm(request.POST)
-        formset = PurchaseReturnItemFormSet(request.POST, queryset=PurchaseReturnItem.objects.none())
-
-        if purchase_return_form.is_valid():
-            purchase_return = purchase_return_form.save(commit=False)
-            formset = PurchaseReturnItemFormSet(request.POST, queryset=PurchaseReturnItem.objects.none())
-            purchase_return.save()
-
-            for form in formset:
-                item_instance = form.save(commit=False)
-                item_instance.purchase_return = purchase_return
-                item_instance.clean()
-                item_instance.save()
-
-            return redirect("purchase_returns_list")  # Redirect after successful save
-    else:
-        purchase_return_form = PurchaseReturnForm()
-        formset = PurchaseReturnItemFormSet(queryset=PurchaseReturnItem.objects.none())
-
-    return render(
-        request,
-        "purchases/create_purchase_return.html",
-        {
-            "purchase_return_form": purchase_return_form,
-            "formset": formset,
-        },
-    )
 
 
 def update_inventory_for_item(item, added_quantity, reverse=False):
@@ -93,6 +52,11 @@ def add_purchase(request):
             try:
                 with transaction.atomic():
                     purchase = purchase_form.save(commit=False)
+                    
+                    # **Ensure initial status is 'Pending'**
+                    purchase.status = 'Pending'
+                    
+                    # Generate unique purchase_code
                     today = datetime.now().strftime("%Y%m%d")
                     latest_purchase = Purchase.objects.filter(purchase_code__startswith=f"PUR-{today}").order_by("id").last()
                     next_number = 1 if not latest_purchase else int(latest_purchase.purchase_code.split('-')[-1]) + 1
@@ -113,10 +77,12 @@ def add_purchase(request):
                     purchase.total_cost = total_cost
                     purchase.save()
 
-                    if purchase.status == 'Delivered':
-                        for item in purchase_items:
-                            update_inventory_for_item(item, item.quantity)
+                    # **Remove Inventory Update from Initial Save**
+                    # if purchase.status == 'Delivered':
+                    #     for item in purchase_items:
+                    #         update_inventory_for_item(item, item.quantity)
 
+                messages.success(request, f"Purchase {purchase.purchase_code} created successfully with status 'Pending'.")
                 return redirect('purchases:purchase_index')
 
             except IntegrityError as e:
@@ -137,6 +103,7 @@ def add_purchase(request):
         'suppliers': suppliers,
         'inventories': inventories,
     })
+
 
 
 from inventory.models import SerializedInventory
@@ -309,23 +276,136 @@ def purchase_detail(request, purchase_id):
         'invoice': invoice
     })
 
+def purchase_return_list(request):
+    returns = PurchaseReturn.objects.all().order_by('-return_date')
+    return render(request, 'purchases/purchase_return.html', {'returns': returns})
+
+
+from .models import Purchase, PurchaseItem, PurchaseReturn, PurchaseReturnItem
+from .forms import PurchaseReturnForm, PurchaseReturnItemFormSet
+from django.template.loader import get_template, TemplateDoesNotExist
+from django.forms import modelformset_factory
+
+def update_inventory_for_returned_item(item, returned_quantity):
+    """Adjust the inventory stock based on the returned quantity."""
+    inventory = item.item.inventory
+    inventory.inventory_stock -= returned_quantity  # Reduce stock for returned items
+    inventory.save()
+
+
+def log_return_stock_history(item, returned_quantity):
+    """Log stock history for the returned items."""
+    StockHistory.objects.create(
+        inventory=item.item.inventory,
+        purchase=item.item.purchase,
+        status='Returned',
+        delivered_quantity=-returned_quantity,  # Negative for returns
+        remarks=f"Returned {returned_quantity} units."
+    )
+
+
+def create_purchase_return(request):
+    if request.method == 'POST':
+        purchase_return_form = PurchaseReturnForm(request.POST)
+        purchase = None
+
+        # Validate the form first
+        if purchase_return_form.is_valid():
+            # Access cleaned_data only after validation
+            purchase = purchase_return_form.cleaned_data.get('purchase')
+
+        # Initialize the formset with the purchase if available
+        formset = PurchaseReturnItemFormSet(request.POST, form_kwargs={'purchase': purchase})
+
+        if purchase_return_form.is_valid() and formset.is_valid():
+            try:
+                with transaction.atomic():
+                    # Create the PurchaseReturn object
+                    purchase_return = purchase_return_form.save(commit=False)
+                    today = datetime.now().strftime("%Y%m%d")
+                    latest_return = PurchaseReturn.objects.filter(return_code__startswith=f"PR-{today}").order_by("id").last()
+                    next_number = 1 if not latest_return else int(latest_return.return_code.split('-')[-1]) + 1
+                    purchase_return.return_code = f"PR-{today}-{next_number:03d}"
+                    purchase_return.save()
+
+                    # Process each returned item
+                    total_returned_items = 0
+                    for form in formset:
+                        if form.cleaned_data.get('item') and form.cleaned_data.get('returned_quantity'):
+                            purchase_return_item = form.save(commit=False)
+
+                            # Debugging: Print delivered quantity and returned quantity
+                            item = purchase_return_item.item
+                            delivered_quantity = item.delivered_quantity
+                            returned_quantity = purchase_return_item.returned_quantity
+
+                            print(f"Item: {item.inventory.product.product_name}, Delivered Quantity: {delivered_quantity}, Returned Quantity: {returned_quantity}")
+
+                            # Ensure returned quantity does not exceed delivered quantity
+                            if returned_quantity > delivered_quantity:
+                                messages.error(request, f"Returned quantity for item {item.inventory.product.product_name} exceeds delivered quantity.")
+                                return redirect('purchases:create_purchase_return')
+
+                            # Check if delivered_quantity would go negative
+                            new_delivered_quantity = delivered_quantity - returned_quantity
+                            if new_delivered_quantity < 0:
+                                messages.error(request, f"Cannot return more than the delivered quantity for item {item.inventory.product.product_name}.")
+                                return redirect('purchases:create_purchase_return')
+
+                            # Update the delivered_quantity field in PurchaseItem
+                            item.delivered_quantity = new_delivered_quantity
+                            item.save()  # Save the updated item
+
+                            # Link the return item to the return object
+                            purchase_return_item.purchase_return = purchase_return
+                            purchase_return_item.save()
+
+                            # Update inventory and log stock history
+                            update_inventory_for_returned_item(purchase_return_item, returned_quantity)
+                            log_return_stock_history(purchase_return_item, returned_quantity)
+
+                            total_returned_items += returned_quantity
+
+                    # Add success message and redirect
+                    messages.success(request, f"Purchase return created successfully with {total_returned_items} items returned.")
+                    return redirect('purchases:purchase_return_list')
+
+            except Exception as e:
+                # Handle transaction failure
+                messages.error(request, f"Error saving purchase return: {e}")
+
+        else:
+            # Handle form validation errors
+            messages.error(request, "There was an error with the submitted forms.")
+
+    else:
+        purchase_return_form = PurchaseReturnForm()
+        formset = PurchaseReturnItemFormSet(queryset=PurchaseReturnItem.objects.none())
+
+    purchases = Purchase.objects.all()
+
+    return render(request, 'purchases/create_purchase_return.html', {
+        'purchase_return_form': purchase_return_form,
+        'formset': formset,
+        'purchases': purchases,
+    })
+
 def get_items_for_purchase(request, purchase_id):
-    # Get the purchase object
-    purchase = Purchase.objects.get(id=purchase_id)
+    purchase = get_object_or_404(Purchase, id=purchase_id)
+    items = purchase.items.filter(delivered_quantity__gt=0)  # Ensure items have this field.
 
-    # Get the items under this purchase
-    items = purchase.items.all()
-
-    # Prepare the data for the response
     data = {
-        'items': [
+        "items": [
             {
-                'id': item.id,
-                'name': item.inventory.product.product_name,  # Use product name if you want
-                'quantity_delivered': item.delivered_quantity,  # Use delivered quantity to limit return quantity
+                "id": item.id,
+                "name": item.inventory.product.product_name,
+                "delivered_quantity": item.delivered_quantity,  # Confirm correct field name.
             }
             for item in items
         ]
     }
+
+    # Debug output to validate correctness
+    print(f"Purchase ID: {purchase_id}, Items: {data['items']}")
 
     return JsonResponse(data)
